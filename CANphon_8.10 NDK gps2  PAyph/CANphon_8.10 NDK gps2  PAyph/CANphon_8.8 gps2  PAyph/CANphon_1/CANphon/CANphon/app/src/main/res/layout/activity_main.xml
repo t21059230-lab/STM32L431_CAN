@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools" android:id="@+id/main" android:layout_width="match_parent" android:layout_height="match_parent" android:background="#1A1A2E" android:padding="24dp" tools:context=".MainActivity">
+
+    <!-- Title -->
+    <TextView android:id="@+id/tvTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎮 CANphon" android:textSize="28sp" android:textColor="#FFFFFF" android:textStyle="bold" app:layout_constraintTop_toTopOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" android:layout_marginTop="16dp" />
+
+    <!-- Connection Status -->
+    <TextView android:id="@+id/tvConnectionStatus" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🔴 غير متصل" android:textSize="18sp" android:textColor="#FF6B6B" app:layout_constraintTop_toBottomOf="@id/tvTitle" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" android:layout_marginTop="16dp" />
+
+    <!-- Orientation Card -->
+    <androidx.cardview.widget.CardView android:id="@+id/cardOrientation" android:layout_width="match_parent" android:layout_height="wrap_content" app:cardBackgroundColor="#16213E" app:cardCornerRadius="16dp" app:cardElevation="8dp" app:layout_constraintTop_toBottomOf="@id/tvConnectionStatus" android:layout_marginTop="24dp">
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="📱 Phone Orientation" android:textSize="16sp" android:textColor="#808080" android:layout_marginBottom="12dp" />
+
+            <!-- Roll -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
+
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Roll" android:textSize="18sp" android:textColor="#AAAAAA" />
+
+                <TextView android:id="@+id/tvRoll" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0.0°" android:textSize="20sp" android:textColor="#4ECCA3" android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Pitch -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
+
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Pitch" android:textSize="18sp" android:textColor="#AAAAAA" />
+
+                <TextView android:id="@+id/tvPitch" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0.0°" android:textSize="20sp" android:textColor="#FFD93D" android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Yaw -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Yaw" android:textSize="18sp" android:textColor="#AAAAAA" />
+
+                <TextView android:id="@+id/tvYaw" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0.0°" android:textSize="20sp" android:textColor="#6BCB77" android:textStyle="bold" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Servos Card with Command & Feedback -->
+    <androidx.cardview.widget.CardView android:id="@+id/cardServos" android:layout_width="match_parent" android:layout_height="wrap_content" app:cardBackgroundColor="#16213E" app:cardCornerRadius="16dp" app:cardElevation="8dp" app:layout_constraintTop_toBottomOf="@id/cardOrientation" android:layout_marginTop="16dp">
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+
+            <!-- Header Row -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="12dp">
+
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="⚙️ Servo" android:textSize="14sp" android:textColor="#808080" />
+
+                <TextView android:layout_width="70dp" android:layout_height="wrap_content" android:text="Cmd" android:textSize="14sp" android:textColor="#4ECCA3" android:gravity="center" />
+
+                <TextView android:layout_width="70dp" android:layout_height="wrap_content" android:text="Feedback" android:textSize="14sp" android:textColor="#FF6B6B" android:gravity="center" />
+            </LinearLayout>
+
+            <!-- Servo 1 -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
+
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="S1 (FR)" android:textSize="15sp" android:textColor="#AAAAAA" />
+
+                <TextView android:id="@+id/tvServo1" android:layout_width="70dp" android:layout_height="wrap_content" android:text="0.0°" android:textSize="15sp" android:textColor="#4ECCA3" android:gravity="center" />
+
+                <TextView android:id="@+id/tvServo1Fb" android:layout_width="70dp" android:layout_height="wrap_content" android:text="--" android:textSize="15sp" android:textColor="#FF6B6B" android:gravity="center" />
+            </LinearLayout>
+
+            <!-- Servo 2 -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
+
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="S2 (FL)" android:textSize="15sp" android:textColor="#AAAAAA" />
+
+                <TextView android:id="@+id/tvServo2" android:layout_width="70dp" android:layout_height="wrap_content" android:text="0.0°" android:textSize="15sp" android:textColor="#FFD93D" android:gravity="center" />
+
+                <TextView android:id="@+id/tvServo2Fb" android:layout_width="70dp" android:layout_height="wrap_content" android:text="--" android:textSize="15sp" android:textColor="#FF6B6B" android:gravity="center" />
+            </LinearLayout>
+
+            <!-- Servo 3 -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
+
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="S3 (BR)" android:textSize="15sp" android:textColor="#AAAAAA" />
+
+                <TextView android:id="@+id/tvServo3" android:layout_width="70dp" android:layout_height="wrap_content" android:text="0.0°" android:textSize="15sp" android:textColor="#6BCB77" android:gravity="center" />
+
+                <TextView android:id="@+id/tvServo3Fb" android:layout_width="70dp" android:layout_height="wrap_content" android:text="--" android:textSize="15sp" android:textColor="#FF6B6B" android:gravity="center" />
+            </LinearLayout>
+
+            <!-- Servo 4 -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="S4 (BL)" android:textSize="15sp" android:textColor="#AAAAAA" />
+
+                <TextView android:id="@+id/tvServo4" android:layout_width="70dp" android:layout_height="wrap_content" android:text="0.0°" android:textSize="15sp" android:textColor="#808080" android:gravity="center" />
+
+                <TextView android:id="@+id/tvServo4Fb" android:layout_width="70dp" android:layout_height="wrap_content" android:text="--" android:textSize="15sp" android:textColor="#FF6B6B" android:gravity="center" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- LAUNCH Button -->
+    <Button android:id="@+id/btnLaunch" android:layout_width="match_parent" android:layout_height="56dp" android:text="🚀 LAUNCH" android:textSize="18sp" android:textColor="#FFFFFF" android:backgroundTint="#F44336" app:layout_constraintTop_toBottomOf="@id/cardServos" android:layout_marginTop="16dp" />
+
+    <!-- Tracking Button -->
+    <Button android:id="@+id/btnTracking" android:layout_width="match_parent" android:layout_height="56dp" android:text="📸 كاميرا التتبع" android:textSize="18sp" android:textColor="#FFFFFF" android:backgroundTint="#9B59B6" app:layout_constraintTop_toBottomOf="@id/btnLaunch" android:layout_marginTop="8dp" />
+
+    <!-- Record Button -->
+    <Button android:id="@+id/btnRecord" android:layout_width="match_parent" android:layout_height="56dp" android:text="⏺ بدء التسجيل" android:textSize="18sp" android:textColor="#FFFFFF" android:backgroundTint="#3498DB" app:layout_constraintTop_toBottomOf="@id/btnTracking" android:layout_marginTop="8dp" />
+
+    <!-- Update Rate -->
+    <TextView android:id="@+id/tvUpdateRate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="60Hz Control Loop" android:textSize="14sp" android:textColor="#555555" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" android:layout_marginBottom="16dp" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

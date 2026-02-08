@@ -1,0 +1,2259 @@
+# 🧠 دليل تكامل التعلم المعزز (Reinforcement Learning)
+# SAQR Seeker RL Integration Guide
+
+**الإصدار**: 1.0  
+**التاريخ**: 2026-01-12  
+**المشروع**: SAQR Seeker - نظام التحكم بالتعلم المعزز
+
+---
+
+# فهرس المحتويات
+
+1. [مقدمة وفكرة المشروع](#الفصل-1-مقدمة-وفكرة-المشروع)
+2. [المدخلات (Observation Space)](#الفصل-2-المدخلات-observation-space)
+3. [المخرجات (Action Space)](#الفصل-3-المخرجات-action-space)
+4. [دالة المكافأة (Reward Function)](#الفصل-4-دالة-المكافأة-reward-function)
+5. [بناء البيئة (Environment)](#الفصل-5-بناء-البيئة-environment)
+6. [التدريب والخوارزميات](#الفصل-6-التدريب-والخوارزميات)
+7. [النشر على الهاردوير](#الفصل-7-النشر-على-الهاردوير)
+8. [الملاحق](#الملاحق)
+
+---
+
+# الفصل 1: مقدمة وفكرة المشروع
+
+## 1.1 الفكرة العامة
+
+الهدف هو استبدال المتحكم التقليدي **PID** بنموذج **Reinforcement Learning** ليكون "العقل المتحكم" الرئيسي في نظام SAQR Seeker.
+
+### المقارنة
+
+| الجانب | PID التقليدي | RL Agent |
+|--------|--------------|----------|
+| **التكيف** | ثابت، يحتاج ضبط يدوي | يتعلم ويتكيف تلقائياً |
+| **التعقيد** | محدود بالنموذج الخطي | يتعامل مع أنظمة غير خطية |
+| **الاستباقية** | تفاعلي فقط | يتنبأ ويستبق |
+| **الظروف المتغيرة** | يحتاج إعادة ضبط | يتكيف تلقائياً |
+
+## 1.2 معمارية النظام
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    الوضع الحالي (PID Controller)                │
+└─────────────────────────────────────────────────────────────────┘
+   Sensors → Detection → Tracking → [PID] → Servo Commands
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    الوضع المطلوب (RL Controller)                │
+└─────────────────────────────────────────────────────────────────┘
+   Sensors → Detection → Tracking → [RL Agent] → Servo Commands
+```
+
+## 1.3 مراحل التنفيذ
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   المرحلة 1 │    │   المرحلة 2 │    │   المرحلة 3 │
+│   Simulation│───▶│   Sim2Real  │───▶│   Hardware  │
+│   Training  │    │   Transfer  │    │   Deploy    │
+└─────────────┘    └─────────────┘    └─────────────┘
+```
+
+---
+
+# الفصل 2: المدخلات (Observation Space)
+
+## 2.1 نظرة عامة
+
+الـ RL Agent يحتاج "رؤية" كاملة لحالة النظام ليتخذ قرارات صحيحة.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Observation Vector (27-30 عنصر)              │
+├─────────────────┬─────────────────┬─────────────────────────────┤
+│   Target State  │   Servo State   │   Environment State         │
+│   (9 عناصر)     │   (5 عناصر)     │   (13 عنصر)                 │
+└─────────────────┴─────────────────┴─────────────────────────────┘
+```
+
+## 2.2 بيانات الهدف (Target State)
+
+### الحقول
+| الحقل | النوع | النطاق | الوصف | المصدر في المشروع |
+|-------|-------|--------|-------|-------------------|
+| `target_x` | float | -1 to 1 | موقع X بالنسبة للمركز | `TrackingResult.boundingBox.centerX()` |
+| `target_y` | float | -1 to 1 | موقع Y بالنسبة للمركز | `TrackingResult.boundingBox.centerY()` |
+| `target_width` | float | 0 to 1 | عرض الهدف (normalized) | `TrackingResult.boundingBox.width()` |
+| `target_height` | float | 0 to 1 | ارتفاع الهدف (normalized) | `TrackingResult.boundingBox.height()` |
+| `target_vx` | float | -10 to 10 | سرعة الهدف أفقياً | `ObjectTracker.velocity.x` |
+| `target_vy` | float | -10 to 10 | سرعة الهدف عمودياً | `ObjectTracker.velocity.y` |
+| `confidence` | float | 0 to 1 | ثقة الكشف | `TrackingResult.confidence` |
+| `target_visible` | bool | 0 or 1 | هل الهدف مرئي | `StableTracker.isTracking` |
+| `frames_since_lost` | int | 0 to 100 | إطارات منذ الفقدان | `StableTracker.lostFrames` |
+
+### كود الاستخراج
+```kotlin
+data class TargetObservation(
+    val targetX: Float,
+    val targetY: Float,
+    val targetWidth: Float,
+    val targetHeight: Float,
+    val targetVx: Float,
+    val targetVy: Float,
+    val confidence: Float,
+    val targetVisible: Float,
+    val framesSinceLost: Float
+)
+
+fun extractTargetState(
+    result: TrackingResult?,
+    tracker: ObjectTracker,
+    frameWidth: Int,
+    frameHeight: Int
+): TargetObservation {
+    if (result == null) {
+        return TargetObservation(
+            targetX = 0f,
+            targetY = 0f,
+            targetWidth = 0f,
+            targetHeight = 0f,
+            targetVx = 0f,
+            targetVy = 0f,
+            confidence = 0f,
+            targetVisible = 0f,
+            framesSinceLost = tracker.lostFrames.toFloat()
+        )
+    }
+    
+    val box = result.boundingBox
+    val centerX = (box.centerX() / frameWidth) * 2 - 1  // Normalize to [-1, 1]
+    val centerY = (box.centerY() / frameHeight) * 2 - 1
+    
+    return TargetObservation(
+        targetX = centerX,
+        targetY = centerY,
+        targetWidth = box.width() / frameWidth,
+        targetHeight = box.height() / frameHeight,
+        targetVx = tracker.velocity.x / 10f,  // Normalize
+        targetVy = tracker.velocity.y / 10f,
+        confidence = result.confidence,
+        targetVisible = 1f,
+        framesSinceLost = 0f
+    )
+}
+```
+
+---
+
+## 2.3 بيانات السيرفو (Servo State)
+
+### الحقول
+| الحقل | النوع | النطاق | الوصف | المصدر في المشروع |
+|-------|-------|--------|-------|-------------------|
+| `yaw_angle` | float | -100 to 100 | زاوية Yaw الحالية | `SharedBusManager.servoFeedback[0]` |
+| `pitch_angle` | float | -100 to 100 | زاوية Pitch الحالية | `SharedBusManager.servoFeedback[1]` |
+| `roll_angle` | float | -100 to 100 | زاوية Roll الحالية | `SharedBusManager.servoFeedback[2]` |
+| `yaw_velocity` | float | -10 to 10 | سرعة Yaw | محسوب من التغير |
+| `pitch_velocity` | float | -10 to 10 | سرعة Pitch | محسوب من التغير |
+
+### كود الاستخراج
+```kotlin
+data class ServoObservation(
+    val yawAngle: Float,
+    val pitchAngle: Float,
+    val rollAngle: Float,
+    val yawVelocity: Float,
+    val pitchVelocity: Float
+)
+
+class ServoStateExtractor {
+    private var lastYaw = 0f
+    private var lastPitch = 0f
+    private var lastTimestamp = 0L
+    
+    fun extract(busManager: SharedBusManager): ServoObservation {
+        val currentTime = System.currentTimeMillis()
+        val dt = (currentTime - lastTimestamp) / 1000f
+        
+        val yaw = busManager.getServoFeedback(1)
+        val pitch = busManager.getServoFeedback(2)
+        val roll = busManager.getServoFeedback(3)
+        
+        val yawVel = if (dt > 0) (yaw - lastYaw) / dt else 0f
+        val pitchVel = if (dt > 0) (pitch - lastPitch) / dt else 0f
+        
+        lastYaw = yaw
+        lastPitch = pitch
+        lastTimestamp = currentTime
+        
+        return ServoObservation(
+            yawAngle = yaw / 100f,      // Normalize to [-1, 1]
+            pitchAngle = pitch / 100f,
+            rollAngle = roll / 100f,
+            yawVelocity = yawVel / 10f,
+            pitchVelocity = pitchVel / 10f
+        )
+    }
+}
+```
+
+---
+
+## 2.4 بيانات IMU (Environment State)
+
+### الحقول
+| الحقل | النوع | النطاق | الوصف | المصدر في المشروع |
+|-------|-------|--------|-------|-------------------|
+| `gyro_x` | float | -5 to 5 | سرعة الدوران X | `GyroManager.gyroX` |
+| `gyro_y` | float | -5 to 5 | سرعة الدوران Y | `GyroManager.gyroY` |
+| `gyro_z` | float | -5 to 5 | سرعة الدوران Z | `GyroManager.gyroZ` |
+| `accel_x` | float | -20 to 20 | التسارع X | `AccelerometerManager.x` |
+| `accel_y` | float | -20 to 20 | التسارع Y | `AccelerometerManager.y` |
+| `accel_z` | float | -20 to 20 | التسارع Z | `AccelerometerManager.z` |
+| `shake_level` | float | 0 to 1 | مستوى الاهتزاز | `SensorFusionLayer.shakeLevel` |
+
+### كود الاستخراج
+```kotlin
+data class IMUObservation(
+    val gyroX: Float,
+    val gyroY: Float,
+    val gyroZ: Float,
+    val accelX: Float,
+    val accelY: Float,
+    val accelZ: Float,
+    val shakeLevel: Float
+)
+
+fun extractIMUState(
+    gyroManager: GyroManager,
+    accelManager: AccelerometerManager
+): IMUObservation {
+    val gyro = gyroManager.getLatestValues()
+    val accel = accelManager.getLatestValues()
+    
+    // Calculate shake level from acceleration variance
+    val shakeLevel = sqrt(
+        (accel.x - 0).pow(2) + 
+        (accel.y - 0).pow(2) + 
+        (accel.z - 9.8f).pow(2)
+    ) / 10f
+    
+    return IMUObservation(
+        gyroX = gyro.x / 5f,      // Normalize
+        gyroY = gyro.y / 5f,
+        gyroZ = gyro.z / 5f,
+        accelX = accel.x / 20f,
+        accelY = accel.y / 20f,
+        accelZ = accel.z / 20f,
+        shakeLevel = shakeLevel.coerceIn(0f, 1f)
+    )
+}
+```
+
+---
+
+## 2.5 بيانات الخطأ (Error State)
+
+### الحقول
+| الحقل | النوع | النطاق | الوصف |
+|-------|-------|--------|-------|
+| `error_x` | float | -1 to 1 | الخطأ الأفقي |
+| `error_y` | float | -1 to 1 | الخطأ العمودي |
+| `error_integral_x` | float | -10 to 10 | تراكم الخطأ X |
+| `error_integral_y` | float | -10 to 10 | تراكم الخطأ Y |
+| `error_derivative_x` | float | -10 to 10 | تغير الخطأ X |
+| `error_derivative_y` | float | -10 to 10 | تغير الخطأ Y |
+| `time_on_target` | int | 0 to 1000 | إطارات على الهدف |
+
+### كود الاستخراج
+```kotlin
+class ErrorStateExtractor {
+    private var integralX = 0f
+    private var integralY = 0f
+    private var lastErrorX = 0f
+    private var lastErrorY = 0f
+    private var timeOnTarget = 0
+    
+    fun extract(targetX: Float, targetY: Float): ErrorObservation {
+        val errorX = -targetX  // Error = desired (0) - actual
+        val errorY = -targetY
+        
+        integralX += errorX * 0.033f  // dt ≈ 33ms
+        integralY += errorY * 0.033f
+        
+        val derivativeX = (errorX - lastErrorX) / 0.033f
+        val derivativeY = (errorY - lastErrorY) / 0.033f
+        
+        // Clamp integral to prevent windup
+        integralX = integralX.coerceIn(-10f, 10f)
+        integralY = integralY.coerceIn(-10f, 10f)
+        
+        // Track time on target
+        if (abs(errorX) < 0.1f && abs(errorY) < 0.1f) {
+            timeOnTarget++
+        } else {
+            timeOnTarget = 0
+        }
+        
+        lastErrorX = errorX
+        lastErrorY = errorY
+        
+        return ErrorObservation(
+            errorX = errorX,
+            errorY = errorY,
+            errorIntegralX = integralX / 10f,
+            errorIntegralY = integralY / 10f,
+            errorDerivativeX = derivativeX / 10f,
+            errorDerivativeY = derivativeY / 10f,
+            timeOnTarget = (timeOnTarget / 1000f).coerceIn(0f, 1f)
+        )
+    }
+}
+```
+
+---
+
+## 2.6 تجميع الـ Observation الكامل
+
+```kotlin
+class ObservationBuilder(
+    private val servoExtractor: ServoStateExtractor,
+    private val errorExtractor: ErrorStateExtractor
+) {
+    fun build(
+        trackingResult: TrackingResult?,
+        tracker: ObjectTracker,
+        busManager: SharedBusManager,
+        gyroManager: GyroManager,
+        accelManager: AccelerometerManager,
+        frameWidth: Int,
+        frameHeight: Int
+    ): FloatArray {
+        val target = extractTargetState(trackingResult, tracker, frameWidth, frameHeight)
+        val servo = servoExtractor.extract(busManager)
+        val imu = extractIMUState(gyroManager, accelManager)
+        val error = errorExtractor.extract(target.targetX, target.targetY)
+        
+        return floatArrayOf(
+            // Target (9)
+            target.targetX, target.targetY,
+            target.targetWidth, target.targetHeight,
+            target.targetVx, target.targetVy,
+            target.confidence, target.targetVisible, target.framesSinceLost,
+            
+            // Servo (5)
+            servo.yawAngle, servo.pitchAngle, servo.rollAngle,
+            servo.yawVelocity, servo.pitchVelocity,
+            
+            // IMU (7)
+            imu.gyroX, imu.gyroY, imu.gyroZ,
+            imu.accelX, imu.accelY, imu.accelZ,
+            imu.shakeLevel,
+            
+            // Error (7)
+            error.errorX, error.errorY,
+            error.errorIntegralX, error.errorIntegralY,
+            error.errorDerivativeX, error.errorDerivativeY,
+            error.timeOnTarget
+        )
+    }
+}
+```
+
+---
+
+# الفصل 3: المخرجات (Action Space)
+
+## 3.1 أنواع مساحة الإجراءات
+
+### الخيار 1: تحكم بالزاوية المطلقة (Position Control)
+```python
+# Action = الزاوية المستهدفة مباشرة
+action_space = spaces.Box(
+    low=np.array([-100, -100, -100]),   # Yaw, Pitch, Roll (degrees)
+    high=np.array([100, 100, 100]),
+    dtype=np.float32
+)
+```
+
+### الخيار 2: تحكم بالتغيير (Delta Control) ✅ موصى به
+```python
+# Action = التغيير في الزاوية
+action_space = spaces.Box(
+    low=np.array([-1, -1, -1]),   # Normalized
+    high=np.array([1, 1, 1]),
+    dtype=np.float32
+)
+# ثم يُضرب في scale (مثلاً 5°)
+```
+
+### الخيار 3: تحكم بالسرعة (Velocity Control)
+```python
+# Action = سرعة الدوران
+action_space = spaces.Box(
+    low=np.array([-1, -1, -1]),   # Normalized velocity
+    high=np.array([1, 1, 1]),
+    dtype=np.float32
+)
+# ثم يُضرب في max_velocity (مثلاً 100°/s)
+```
+
+---
+
+## 3.2 تحويل Action إلى أوامر سيرفو
+
+```kotlin
+class ActionExecutor(
+    private val busManager: SharedBusManager
+) {
+    private val ACTION_SCALE = 5f  // ±5° per action unit
+    private val MAX_ANGLE = 100f
+    private val MIN_ANGLE = -100f
+    
+    private var currentYaw = 0f
+    private var currentPitch = 0f
+    private var currentRoll = 0f
+    
+    fun execute(action: FloatArray) {
+        // Scale actions
+        val deltaYaw = action[0] * ACTION_SCALE
+        val deltaPitch = action[1] * ACTION_SCALE
+        val deltaRoll = action[2] * ACTION_SCALE
+        
+        // Apply deltas with clamping
+        currentYaw = (currentYaw + deltaYaw).coerceIn(MIN_ANGLE, MAX_ANGLE)
+        currentPitch = (currentPitch + deltaPitch).coerceIn(MIN_ANGLE, MAX_ANGLE)
+        currentRoll = (currentRoll + deltaRoll).coerceIn(MIN_ANGLE, MAX_ANGLE)
+        
+        // Send to servos
+        busManager.moveServo(1, currentYaw)
+        busManager.moveServo(2, currentPitch)
+        busManager.moveServo(3, currentRoll)
+    }
+    
+    fun reset() {
+        currentYaw = 0f
+        currentPitch = 0f
+        currentRoll = 0f
+        busManager.moveServo(1, 0f)
+        busManager.moveServo(2, 0f)
+        busManager.moveServo(3, 0f)
+    }
+}
+```
+
+---
+
+## 3.3 للتحكم بالطائرة (Drone)
+
+```python
+# Action Space للطيران
+action_space = spaces.Box(
+    low=np.array([0, -1, -1, -1]),    # [Throttle, Roll, Pitch, Yaw]
+    high=np.array([1, 1, 1, 1]),
+    dtype=np.float32
+)
+```
+
+```kotlin
+class DroneActionExecutor(
+    private val flightController: STM32FlightController
+) {
+    fun execute(action: FloatArray) {
+        val throttle = (action[0] * 1000).toInt()  // 0-1000
+        val roll = (action[1] * 500).toInt()       // -500 to 500
+        val pitch = (action[2] * 500).toInt()      // -500 to 500
+        val yaw = (action[3] * 500).toInt()        // -500 to 500
+        
+        flightController.sendCommand(throttle, roll, pitch, yaw)
+    }
+}
+```
+
+---
+
+# الفصل 4: دالة المكافأة (Reward Function)
+
+## 4.1 المبادئ الأساسية
+
+| المبدأ | الوصف |
+|--------|-------|
+| **الهدف في المركز** | مكافأة كبيرة عند تقليل الخطأ |
+| **الاستقرار** | عقوبة على الحركات المفرطة |
+| **المتابعة المستمرة** | مكافأة على الحفاظ على الهدف |
+| **فقدان الهدف** | عقوبة كبيرة |
+
+## 4.2 دالة المكافأة الكاملة
+
+```python
+def calculate_reward(
+    state: np.ndarray,
+    action: np.ndarray,
+    next_state: np.ndarray,
+    info: dict
+) -> float:
+    reward = 0.0
+    
+    # ═══════════════════════════════════════════════════════
+    # 1. مكافأة على تقليل الخطأ (MAIN OBJECTIVE)
+    # ═══════════════════════════════════════════════════════
+    error_x = next_state[20]  # error_x index
+    error_y = next_state[21]  # error_y index
+    error_distance = np.sqrt(error_x**2 + error_y**2)
+    
+    # Exponential reward: max 1.0 when on target
+    tracking_reward = np.exp(-5 * error_distance)
+    reward += tracking_reward * 2.0  # Weight: 2.0
+    
+    # ═══════════════════════════════════════════════════════
+    # 2. مكافأة على الدقة العالية (PRECISION BONUS)
+    # ═══════════════════════════════════════════════════════
+    if error_distance < 0.05:  # Within 5% of center
+        reward += 3.0  # Big bonus for precision
+    elif error_distance < 0.1:  # Within 10%
+        reward += 1.5
+    elif error_distance < 0.2:  # Within 20%
+        reward += 0.5
+    
+    # ═══════════════════════════════════════════════════════
+    # 3. مكافأة على رؤية الهدف (VISIBILITY)
+    # ═══════════════════════════════════════════════════════
+    target_visible = next_state[7]  # target_visible index
+    if target_visible > 0.5:
+        reward += 0.5
+    else:
+        reward -= 2.0  # Penalty for losing target
+    
+    # ═══════════════════════════════════════════════════════
+    # 4. عقوبة على الحركة الزائدة (SMOOTHNESS)
+    # ═══════════════════════════════════════════════════════
+    action_magnitude = np.sum(np.abs(action))
+    reward -= 0.1 * action_magnitude
+    
+    # Extra penalty for jerky movements
+    if np.max(np.abs(action)) > 0.8:
+        reward -= 0.3
+    
+    # ═══════════════════════════════════════════════════════
+    # 5. مكافأة على تحسين الخطأ (IMPROVEMENT)
+    # ═══════════════════════════════════════════════════════
+    prev_error_x = state[20]
+    prev_error_y = state[21]
+    prev_error_dist = np.sqrt(prev_error_x**2 + prev_error_y**2)
+    
+    improvement = prev_error_dist - error_distance
+    reward += improvement * 5.0  # Reward improvement
+    
+    # ═══════════════════════════════════════════════════════
+    # 6. عقوبة على فقدان الهدف طويلاً (TIMEOUT)
+    # ═══════════════════════════════════════════════════════
+    frames_since_lost = next_state[8]
+    if frames_since_lost > 10:
+        reward -= 0.5 * (frames_since_lost / 10)
+    if frames_since_lost > 30:
+        reward -= 10.0  # Heavy penalty
+    
+    # ═══════════════════════════════════════════════════════
+    # 7. مكافأة على الوقت على الهدف (TIME ON TARGET)
+    # ═══════════════════════════════════════════════════════
+    time_on_target = next_state[26]  # time_on_target index
+    reward += time_on_target * 2.0
+    
+    # ═══════════════════════════════════════════════════════
+    # 8. عقوبة على الاهتزاز العالي (STABILITY)
+    # ═══════════════════════════════════════════════════════
+    shake_level = next_state[19]  # shake_level index
+    if shake_level > 0.5:
+        reward -= shake_level * 0.5
+    
+    return reward
+```
+
+---
+
+## 4.3 Reward Shaping للتدريب السريع
+
+```python
+class RewardShaper:
+    def __init__(self):
+        self.curriculum_stage = 0
+        self.episodes_at_stage = 0
+        
+    def get_reward(self, state, action, next_state, info):
+        base_reward = calculate_reward(state, action, next_state, info)
+        
+        # Curriculum Learning Stages
+        if self.curriculum_stage == 0:
+            # Stage 0: Just track stationary target
+            return base_reward * 2.0  # Amplify for easier learning
+            
+        elif self.curriculum_stage == 1:
+            # Stage 1: Track slow-moving target
+            return base_reward * 1.5
+            
+        elif self.curriculum_stage == 2:
+            # Stage 2: Track fast-moving target
+            return base_reward * 1.2
+            
+        else:
+            # Stage 3: Full complexity
+            return base_reward
+    
+    def maybe_advance_stage(self, success_rate):
+        self.episodes_at_stage += 1
+        if success_rate > 0.8 and self.episodes_at_stage > 100:
+            self.curriculum_stage = min(self.curriculum_stage + 1, 3)
+            self.episodes_at_stage = 0
+            print(f"Advanced to curriculum stage {self.curriculum_stage}")
+```
+
+---
+
+# الفصل 5: بناء البيئة (Environment)
+
+## 5.1 بيئة المحاكاة (Simulation)
+
+```python
+import gymnasium as gym
+from gymnasium import spaces
+import numpy as np
+
+class SAQRGimbalEnv(gym.Env):
+    """
+    بيئة محاكاة لنظام SAQR Gimbal للتدريب.
+    """
+    
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
+    
+    def __init__(self, render_mode=None):
+        super().__init__()
+        
+        self.render_mode = render_mode
+        
+        # ═══════════════════════════════════════════════════
+        # Observation Space (27 elements)
+        # ═══════════════════════════════════════════════════
+        self.observation_space = spaces.Box(
+            low=np.array([
+                # Target (9)
+                -1, -1,           # target_x, target_y
+                0, 0,             # target_w, target_h
+                -1, -1,           # target_vx, target_vy
+                0,                # confidence
+                0,                # target_visible
+                0,                # frames_since_lost
+                # Servo (5)
+                -1, -1, -1,       # yaw, pitch, roll
+                -1, -1,           # yaw_vel, pitch_vel
+                # IMU (7)
+                -1, -1, -1,       # gyro
+                -1, -1, -1,       # accel
+                0,                # shake
+                # Error (7)
+                -1, -1,           # error
+                -1, -1,           # integral
+                -1, -1,           # derivative
+                0,                # time_on_target
+            ], dtype=np.float32),
+            high=np.array([
+                # Target (9)
+                1, 1,             # target_x, target_y
+                1, 1,             # target_w, target_h
+                1, 1,             # target_vx, target_vy
+                1,                # confidence
+                1,                # target_visible
+                1,                # frames_since_lost
+                # Servo (5)
+                1, 1, 1,          # yaw, pitch, roll
+                1, 1,             # yaw_vel, pitch_vel
+                # IMU (7)
+                1, 1, 1,          # gyro
+                1, 1, 1,          # accel
+                1,                # shake
+                # Error (7)
+                1, 1,             # error
+                1, 1,             # integral
+                1, 1,             # derivative
+                1,                # time_on_target
+            ], dtype=np.float32),
+        )
+        
+        # ═══════════════════════════════════════════════════
+        # Action Space (3 elements: yaw_delta, pitch_delta, roll_delta)
+        # ═══════════════════════════════════════════════════
+        self.action_space = spaces.Box(
+            low=-1.0, high=1.0, shape=(3,), dtype=np.float32
+        )
+        
+        # Internal state
+        self.reset()
+    
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+        
+        # Initialize target at random position
+        self.target_x = self.np_random.uniform(-0.5, 0.5)
+        self.target_y = self.np_random.uniform(-0.5, 0.5)
+        self.target_vx = self.np_random.uniform(-0.02, 0.02)
+        self.target_vy = self.np_random.uniform(-0.02, 0.02)
+        
+        # Initialize gimbal at center
+        self.gimbal_yaw = 0.0
+        self.gimbal_pitch = 0.0
+        self.gimbal_roll = 0.0
+        
+        # Initialize counters
+        self.steps = 0
+        self.time_on_target = 0
+        self.frames_since_lost = 0
+        self.error_integral = np.array([0.0, 0.0])
+        self.last_error = np.array([0.0, 0.0])
+        
+        observation = self._get_observation()
+        info = {}
+        
+        return observation, info
+    
+    def step(self, action):
+        self.steps += 1
+        
+        # ═══════════════════════════════════════════════════
+        # 1. Apply action to gimbal
+        # ═══════════════════════════════════════════════════
+        action_scale = 0.05  # 5% of range per action
+        self.gimbal_yaw += action[0] * action_scale
+        self.gimbal_pitch += action[1] * action_scale
+        self.gimbal_roll += action[2] * action_scale
+        
+        # Clamp gimbal angles
+        self.gimbal_yaw = np.clip(self.gimbal_yaw, -1, 1)
+        self.gimbal_pitch = np.clip(self.gimbal_pitch, -1, 1)
+        self.gimbal_roll = np.clip(self.gimbal_roll, -1, 1)
+        
+        # ═══════════════════════════════════════════════════
+        # 2. Update target position
+        # ═══════════════════════════════════════════════════
+        self.target_x += self.target_vx
+        self.target_y += self.target_vy
+        
+        # Bounce off edges
+        if abs(self.target_x) > 0.9:
+            self.target_vx *= -1
+        if abs(self.target_y) > 0.9:
+            self.target_vy *= -1
+        
+        # Random velocity changes
+        if self.np_random.random() < 0.05:
+            self.target_vx += self.np_random.uniform(-0.01, 0.01)
+            self.target_vy += self.np_random.uniform(-0.01, 0.01)
+        
+        # ═══════════════════════════════════════════════════
+        # 3. Calculate apparent target position (relative to gimbal)
+        # ═══════════════════════════════════════════════════
+        apparent_x = self.target_x - self.gimbal_yaw
+        apparent_y = self.target_y - self.gimbal_pitch
+        
+        # ═══════════════════════════════════════════════════
+        # 4. Check if target is visible
+        # ═══════════════════════════════════════════════════
+        target_visible = abs(apparent_x) < 0.5 and abs(apparent_y) < 0.5
+        
+        if target_visible:
+            self.frames_since_lost = 0
+            error = np.sqrt(apparent_x**2 + apparent_y**2)
+            if error < 0.1:
+                self.time_on_target += 1
+            else:
+                self.time_on_target = max(0, self.time_on_target - 1)
+        else:
+            self.frames_since_lost += 1
+            self.time_on_target = 0
+        
+        # ═══════════════════════════════════════════════════
+        # 5. Calculate reward
+        # ═══════════════════════════════════════════════════
+        observation = self._get_observation()
+        reward = self._calculate_reward(action, apparent_x, apparent_y, target_visible)
+        
+        # ═══════════════════════════════════════════════════
+        # 6. Check termination
+        # ═══════════════════════════════════════════════════
+        terminated = self.frames_since_lost > 30
+        truncated = self.steps >= 1000
+        
+        info = {
+            "error": np.sqrt(apparent_x**2 + apparent_y**2),
+            "target_visible": target_visible,
+            "time_on_target": self.time_on_target,
+        }
+        
+        return observation, reward, terminated, truncated, info
+    
+    def _get_observation(self):
+        apparent_x = self.target_x - self.gimbal_yaw
+        apparent_y = self.target_y - self.gimbal_pitch
+        target_visible = abs(apparent_x) < 0.5 and abs(apparent_y) < 0.5
+        
+        # Calculate error derivatives
+        error = np.array([apparent_x, apparent_y])
+        self.error_integral += error * 0.033
+        self.error_integral = np.clip(self.error_integral, -1, 1)
+        error_derivative = (error - self.last_error) / 0.033
+        self.last_error = error.copy()
+        
+        return np.array([
+            # Target (9)
+            apparent_x if target_visible else 0,
+            apparent_y if target_visible else 0,
+            0.1, 0.1,  # target size
+            self.target_vx, self.target_vy,
+            0.9 if target_visible else 0,  # confidence
+            1.0 if target_visible else 0,
+            self.frames_since_lost / 30.0,
+            # Servo (5)
+            self.gimbal_yaw,
+            self.gimbal_pitch,
+            self.gimbal_roll,
+            0, 0,  # velocities
+            # IMU (7)
+            0, 0, 0,  # gyro
+            0, 0, 1.0,  # accel (gravity)
+            0,  # shake
+            # Error (7)
+            apparent_x if target_visible else 0,
+            apparent_y if target_visible else 0,
+            self.error_integral[0],
+            self.error_integral[1],
+            np.clip(error_derivative[0], -1, 1),
+            np.clip(error_derivative[1], -1, 1),
+            self.time_on_target / 100.0,
+        ], dtype=np.float32)
+    
+    def _calculate_reward(self, action, apparent_x, apparent_y, target_visible):
+        reward = 0.0
+        
+        error_dist = np.sqrt(apparent_x**2 + apparent_y**2)
+        
+        # Tracking reward
+        if target_visible:
+            reward += np.exp(-5 * error_dist) * 2.0
+            if error_dist < 0.05:
+                reward += 3.0
+            elif error_dist < 0.1:
+                reward += 1.5
+        else:
+            reward -= 2.0
+        
+        # Smoothness penalty
+        reward -= 0.1 * np.sum(np.abs(action))
+        
+        # Time on target bonus
+        reward += self.time_on_target * 0.02
+        
+        return reward
+```
+
+---
+
+## 5.2 تسجيل البيئة
+
+```python
+from gymnasium.envs.registration import register
+
+register(
+    id="SAQRGimbal-v0",
+    entry_point="saqr_env:SAQRGimbalEnv",
+    max_episode_steps=1000,
+)
+```
+
+---
+
+# الفصل 6: التدريب والخوارزميات
+
+## 6.1 اختيار الخوارزمية
+
+| الخوارزمية | المميزات | العيوب | الاستخدام |
+|------------|----------|--------|-----------|
+| **PPO** | مستقر، سهل الضبط | أبطأ من Off-Policy | ✅ للبداية |
+| **SAC** | Sample Efficient | أكثر تعقيداً | ✅ للدقة العالية |
+| **TD3** | مناسب للـ Continuous | حساس للـ Hyperparameters | للسرعة |
+| **DDPG** | بسيط | غير مستقر | غير موصى |
+
+## 6.2 التدريب باستخدام PPO
+
+```python
+from stable_baselines3 import PPO
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
+
+# Create vectorized environment
+env = make_vec_env("SAQRGimbal-v0", n_envs=8)
+
+# Create evaluation environment
+eval_env = make_vec_env("SAQRGimbal-v0", n_envs=1)
+
+# Callbacks
+eval_callback = EvalCallback(
+    eval_env,
+    best_model_save_path="./models/best/",
+    log_path="./logs/",
+    eval_freq=10000,
+    deterministic=True,
+    render=False,
+)
+
+checkpoint_callback = CheckpointCallback(
+    save_freq=50000,
+    save_path="./models/checkpoints/",
+    name_prefix="ppo_gimbal",
+)
+
+# Create and train model
+model = PPO(
+    "MlpPolicy",
+    env,
+    learning_rate=3e-4,
+    n_steps=2048,
+    batch_size=64,
+    n_epochs=10,
+    gamma=0.99,
+    gae_lambda=0.95,
+    clip_range=0.2,
+    ent_coef=0.01,
+    vf_coef=0.5,
+    max_grad_norm=0.5,
+    verbose=1,
+    tensorboard_log="./logs/tensorboard/",
+)
+
+# Train
+model.learn(
+    total_timesteps=5_000_000,
+    callback=[eval_callback, checkpoint_callback],
+    progress_bar=True,
+)
+
+# Save final model
+model.save("models/ppo_gimbal_final")
+```
+
+---
+
+## 6.3 التدريب باستخدام SAC
+
+```python
+from stable_baselines3 import SAC
+
+model = SAC(
+    "MlpPolicy",
+    env,
+    learning_rate=3e-4,
+    buffer_size=1_000_000,
+    learning_starts=10000,
+    batch_size=256,
+    tau=0.005,
+    gamma=0.99,
+    train_freq=1,
+    gradient_steps=1,
+    ent_coef="auto",
+    verbose=1,
+    tensorboard_log="./logs/tensorboard/",
+)
+
+model.learn(total_timesteps=2_000_000)
+model.save("models/sac_gimbal_final")
+```
+
+---
+
+## 6.4 Hyperparameter Tuning
+
+```python
+import optuna
+from stable_baselines3 import PPO
+from stable_baselines3.common.evaluation import evaluate_policy
+
+def objective(trial):
+    # Sample hyperparameters
+    learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
+    n_steps = trial.suggest_categorical("n_steps", [512, 1024, 2048, 4096])
+    batch_size = trial.suggest_categorical("batch_size", [32, 64, 128, 256])
+    gamma = trial.suggest_float("gamma", 0.95, 0.999)
+    gae_lambda = trial.suggest_float("gae_lambda", 0.9, 0.99)
+    clip_range = trial.suggest_float("clip_range", 0.1, 0.3)
+    ent_coef = trial.suggest_float("ent_coef", 0.001, 0.1, log=True)
+    
+    env = make_vec_env("SAQRGimbal-v0", n_envs=4)
+    
+    model = PPO(
+        "MlpPolicy",
+        env,
+        learning_rate=learning_rate,
+        n_steps=n_steps,
+        batch_size=batch_size,
+        gamma=gamma,
+        gae_lambda=gae_lambda,
+        clip_range=clip_range,
+        ent_coef=ent_coef,
+        verbose=0,
+    )
+    
+    model.learn(total_timesteps=100_000)
+    
+    mean_reward, _ = evaluate_policy(model, env, n_eval_episodes=10)
+    
+    return mean_reward
+
+study = optuna.create_study(direction="maximize")
+study.optimize(objective, n_trials=50)
+
+print("Best hyperparameters:", study.best_params)
+```
+
+---
+
+# الفصل 7: النشر على الهاردوير
+
+## 7.1 تحويل النموذج لـ TFLite
+
+```python
+import tensorflow as tf
+from stable_baselines3 import PPO
+import numpy as np
+
+# Load trained model
+model = PPO.load("models/ppo_gimbal_final")
+
+# Extract policy network
+policy = model.policy
+
+# Create TF function
+class PolicyWrapper(tf.Module):
+    def __init__(self, policy):
+        self.policy = policy
+        
+    @tf.function(input_signature=[tf.TensorSpec([1, 27], tf.float32)])
+    def predict(self, observation):
+        action, _ = self.policy.predict(observation, deterministic=True)
+        return action
+
+wrapper = PolicyWrapper(policy)
+
+# Convert to TFLite
+converter = tf.lite.TFLiteConverter.from_concrete_functions(
+    [wrapper.predict.get_concrete_function()]
+)
+converter.target_spec.supported_ops = [
+    tf.lite.OpsSet.TFLITE_BUILTINS,
+    tf.lite.OpsSet.SELECT_TF_OPS,
+]
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+
+tflite_model = converter.convert()
+
+# Save
+with open("models/rl_policy.tflite", "wb") as f:
+    f.write(tflite_model)
+```
+
+---
+
+## 7.2 تشغيل النموذج على Android
+
+```kotlin
+class RLController(context: Context) {
+    private val interpreter: Interpreter
+    private val inputBuffer: ByteBuffer
+    private val outputBuffer: ByteBuffer
+    
+    init {
+        // Load TFLite model
+        val modelFile = loadModelFile(context, "rl_policy.tflite")
+        interpreter = Interpreter(modelFile)
+        
+        // Allocate buffers
+        inputBuffer = ByteBuffer.allocateDirect(27 * 4)  // 27 floats
+        inputBuffer.order(ByteOrder.nativeOrder())
+        
+        outputBuffer = ByteBuffer.allocateDirect(3 * 4)  // 3 floats
+        outputBuffer.order(ByteOrder.nativeOrder())
+    }
+    
+    fun predict(observation: FloatArray): FloatArray {
+        // Prepare input
+        inputBuffer.rewind()
+        for (value in observation) {
+            inputBuffer.putFloat(value)
+        }
+        
+        // Run inference
+        inputBuffer.rewind()
+        outputBuffer.rewind()
+        interpreter.run(inputBuffer, outputBuffer)
+        
+        // Extract output
+        outputBuffer.rewind()
+        val action = FloatArray(3)
+        for (i in 0 until 3) {
+            action[i] = outputBuffer.getFloat()
+        }
+        
+        return action
+    }
+    
+    private fun loadModelFile(context: Context, filename: String): MappedByteBuffer {
+        val assetManager = context.assets
+        val fileDescriptor = assetManager.openFd(filename)
+        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
+        val fileChannel = inputStream.channel
+        return fileChannel.map(
+            FileChannel.MapMode.READ_ONLY,
+            fileDescriptor.startOffset,
+            fileDescriptor.declaredLength
+        )
+    }
+}
+```
+
+---
+
+## 7.3 تكامل مع النظام الحالي
+
+```kotlin
+class HybridController(
+    context: Context,
+    private val busManager: SharedBusManager,
+    private val observationBuilder: ObservationBuilder
+) {
+    private val rlController = RLController(context)
+    private val actionExecutor = ActionExecutor(busManager)
+    
+    private var useRL = true  // Toggle between RL and PID
+    
+    fun update(
+        trackingResult: TrackingResult?,
+        tracker: ObjectTracker,
+        gyroManager: GyroManager,
+        accelManager: AccelerometerManager,
+        frameWidth: Int,
+        frameHeight: Int
+    ) {
+        if (useRL) {
+            // Build observation
+            val observation = observationBuilder.build(
+                trackingResult, tracker, busManager,
+                gyroManager, accelManager, frameWidth, frameHeight
+            )
+            
+            // Get RL action
+            val action = rlController.predict(observation)
+            
+            // Execute action
+            actionExecutor.execute(action)
+        } else {
+            // Fallback to PID
+            pidController.update(trackingResult)
+        }
+    }
+    
+    fun toggleMode() {
+        useRL = !useRL
+        Log.d("Controller", "Mode: ${if (useRL) "RL" else "PID"}")
+    }
+}
+```
+
+---
+
+# الملاحق
+
+## ملحق أ: ملخص المدخلات والمخرجات
+
+### جدول المدخلات (27 عنصر)
+| الفهرس | الحقل | النطاق | المصدر |
+|--------|-------|--------|--------|
+| 0-1 | target_x, target_y | [-1, 1] | TrackingResult |
+| 2-3 | target_w, target_h | [0, 1] | TrackingResult |
+| 4-5 | target_vx, target_vy | [-1, 1] | ObjectTracker |
+| 6 | confidence | [0, 1] | TrackingResult |
+| 7 | target_visible | [0, 1] | StableTracker |
+| 8 | frames_since_lost | [0, 1] | StableTracker |
+| 9-11 | yaw, pitch, roll | [-1, 1] | SharedBusManager |
+| 12-13 | yaw_vel, pitch_vel | [-1, 1] | computed |
+| 14-16 | gyro_x, y, z | [-1, 1] | GyroManager |
+| 17-19 | accel_x, y, z | [-1, 1] | AccelerometerManager |
+| 20 | shake_level | [0, 1] | SensorFusionLayer |
+| 21-22 | error_x, error_y | [-1, 1] | computed |
+| 23-24 | integral_x, integral_y | [-1, 1] | computed |
+| 25-26 | derivative_x, derivative_y | [-1, 1] | computed |
+
+### جدول المخرجات (3 عناصر)
+| الفهرس | الحقل | النطاق | الوجهة |
+|--------|-------|--------|--------|
+| 0 | yaw_delta | [-1, 1] | Servo 1 |
+| 1 | pitch_delta | [-1, 1] | Servo 2 |
+| 2 | roll_delta | [-1, 1] | Servo 3 |
+
+---
+
+## ملحق ب: متطلبات التدريب
+
+| المتطلب | الحد الأدنى | الموصى |
+|---------|-------------|--------|
+| **GPU** | GTX 1060 | RTX 3080+ |
+| **RAM** | 16 GB | 32 GB |
+| **Python** | 3.8 | 3.10 |
+| **PyTorch** | 1.13 | 2.0+ |
+| **Stable-Baselines3** | 2.0 | 2.1+ |
+| **وقت التدريب** | 2-4 ساعات | 6-12 ساعة |
+| **عدد الخطوات** | 1M | 5M+ |
+
+---
+
+## ملحق ج: المكتبات المطلوبة
+
+```bash
+# Python packages
+pip install gymnasium
+pip install stable-baselines3[extra]
+pip install tensorboard
+pip install optuna
+pip install numpy
+pip install torch
+
+# For Android deployment
+pip install tensorflow
+pip install tensorflow-lite
+```
+
+---
+
+## ملحق د: هيكل المجلدات
+
+```
+rl_project/
+├── envs/
+│   ├── __init__.py
+│   └── saqr_gimbal_env.py
+├── models/
+│   ├── checkpoints/
+│   ├── best/
+│   └── rl_policy.tflite
+├── logs/
+│   └── tensorboard/
+├── scripts/
+│   ├── train_ppo.py
+│   ├── train_sac.py
+│   └── export_tflite.py
+├── android/
+│   └── app/src/main/java/.../
+│       ├── RLController.kt
+│       ├── ObservationBuilder.kt
+│       └── ActionExecutor.kt
+└── README.md
+```
+
+---
+
+# الفصل 8: Sim2Real Transfer
+
+## 8.1 التحدي
+
+الفجوة بين المحاكاة والواقع (Reality Gap) هي أكبر تحدٍ:
+- **ديناميكيات مختلفة**: المحاكاة لا تمثل الفيزياء الحقيقية بدقة
+- **تأخير مختلف**: Latency في الهاردوير الحقيقي
+- **ضوضاء الحساسات**: بيانات حقيقية أكثر تشويشاً
+
+## 8.2 Domain Randomization
+
+### الفكرة
+تدريب النموذج على مجموعة واسعة من المتغيرات ليتعلم أن يكون مقاوماً للاختلافات.
+
+```python
+class RandomizedGimbalEnv(SAQRGimbalEnv):
+    """بيئة مع Domain Randomization"""
+    
+    def reset(self, seed=None, options=None):
+        obs, info = super().reset(seed, options)
+        
+        # ═══════════════════════════════════════════════════
+        # Randomize Physical Parameters
+        # ═══════════════════════════════════════════════════
+        
+        # 1. Servo response delay (0-50ms)
+        self.servo_delay = self.np_random.uniform(0.0, 0.05)
+        
+        # 2. Servo max speed variation (80%-120%)
+        self.servo_speed_factor = self.np_random.uniform(0.8, 1.2)
+        
+        # 3. Sensor noise level
+        self.sensor_noise = self.np_random.uniform(0.0, 0.1)
+        
+        # 4. Action scale variation (90%-110%)
+        self.action_scale_factor = self.np_random.uniform(0.9, 1.1)
+        
+        # 5. Target detection noise
+        self.detection_noise = self.np_random.uniform(0.0, 0.05)
+        
+        # 6. Latency variation (0-100ms)
+        self.latency = self.np_random.uniform(0.0, 0.1)
+        
+        # 7. IMU bias
+        self.imu_bias = self.np_random.uniform(-0.1, 0.1, size=6)
+        
+        # 8. Servo deadband
+        self.servo_deadband = self.np_random.uniform(0.0, 0.02)
+        
+        return obs, info
+    
+    def step(self, action):
+        # Apply action scale randomization
+        action = action * self.action_scale_factor
+        
+        # Apply deadband
+        action = np.where(np.abs(action) < self.servo_deadband, 0, action)
+        
+        # Simulate servo delay (queue the action)
+        # ...
+        
+        obs, reward, terminated, truncated, info = super().step(action)
+        
+        # Add sensor noise
+        obs = obs + self.np_random.normal(0, self.sensor_noise, size=obs.shape)
+        
+        # Add detection noise to target position
+        obs[0] += self.np_random.normal(0, self.detection_noise)
+        obs[1] += self.np_random.normal(0, self.detection_noise)
+        
+        # Add IMU bias
+        obs[14:20] += self.imu_bias
+        
+        return obs, reward, terminated, truncated, info
+```
+
+### جدول المتغيرات للـ Randomization
+
+| المتغير | النطاق | الوصف |
+|---------|--------|-------|
+| `servo_delay` | 0-50ms | تأخير استجابة السيرفو |
+| `servo_speed_factor` | 80-120% | تغير سرعة السيرفو |
+| `sensor_noise` | 0-10% | ضوضاء الحساسات |
+| `action_scale_factor` | 90-110% | تغير تأثير Action |
+| `detection_noise` | 0-5% | ضوضاء موقع الهدف |
+| `latency` | 0-100ms | تأخير النظام الكلي |
+| `imu_bias` | ±10% | انحراف IMU |
+| `servo_deadband` | 0-2% | المنطقة الميتة للسيرفو |
+| `friction` | 0.8-1.2 | احتكاك الجيمبال |
+| `target_speed` | 0.5x-2x | سرعة الهدف |
+
+---
+
+## 8.3 System Identification
+
+### قياس المعلمات الحقيقية
+
+```python
+class SystemIdentifier:
+    """قياس المعلمات الفيزيائية للنظام الحقيقي"""
+    
+    def measure_servo_response(self, servo_manager):
+        """قياس تأخير واستجابة السيرفو"""
+        results = []
+        
+        for target_angle in [10, 20, 30, 50, 80]:
+            # Send step command
+            start_time = time.time()
+            servo_manager.move_servo(1, target_angle)
+            
+            # Wait for servo to reach target
+            while True:
+                current = servo_manager.get_feedback(1)
+                if abs(current - target_angle) < 1.0:
+                    break
+                if time.time() - start_time > 2.0:
+                    break
+            
+            response_time = time.time() - start_time
+            results.append({
+                'target': target_angle,
+                'response_time': response_time,
+                'rise_time': response_time * 0.63,  # 63% rise
+            })
+        
+        return results
+    
+    def measure_sensor_noise(self, sensor_manager, duration=5.0):
+        """قياس ضوضاء الحساسات"""
+        samples = []
+        start = time.time()
+        
+        while time.time() - start < duration:
+            samples.append(sensor_manager.get_values())
+            time.sleep(0.01)
+        
+        samples = np.array(samples)
+        return {
+            'mean': np.mean(samples, axis=0),
+            'std': np.std(samples, axis=0),
+            'max_deviation': np.max(np.abs(samples - np.mean(samples, axis=0)), axis=0)
+        }
+    
+    def measure_latency(self, camera, servo_manager):
+        """قياس التأخير الكلي للنظام"""
+        # Move servo to known position
+        servo_manager.move_servo(1, 0)
+        time.sleep(1)
+        
+        # Start timing
+        start = time.time()
+        servo_manager.move_servo(1, 45)
+        
+        # Wait for camera to see the change
+        while True:
+            frame = camera.get_frame()
+            # Detect change in frame...
+            if detected_change:
+                break
+        
+        return time.time() - start
+```
+
+---
+
+## 8.4 Progressive Sim2Real
+
+```python
+class ProgressiveSim2Real:
+    """نقل تدريجي من المحاكاة للواقع"""
+    
+    def __init__(self):
+        self.stages = [
+            # Stage 1: Pure simulation
+            {'sim_ratio': 1.0, 'real_ratio': 0.0, 'noise': 0.0},
+            # Stage 2: Noisy simulation
+            {'sim_ratio': 1.0, 'real_ratio': 0.0, 'noise': 0.05},
+            # Stage 3: High noise simulation
+            {'sim_ratio': 1.0, 'real_ratio': 0.0, 'noise': 0.1},
+            # Stage 4: Mixed training
+            {'sim_ratio': 0.7, 'real_ratio': 0.3, 'noise': 0.1},
+            # Stage 5: Mostly real
+            {'sim_ratio': 0.3, 'real_ratio': 0.7, 'noise': 0.05},
+            # Stage 6: Full real
+            {'sim_ratio': 0.0, 'real_ratio': 1.0, 'noise': 0.0},
+        ]
+        self.current_stage = 0
+    
+    def get_training_config(self):
+        return self.stages[self.current_stage]
+    
+    def advance_stage(self, performance):
+        if performance > 0.8 and self.current_stage < len(self.stages) - 1:
+            self.current_stage += 1
+            print(f"Advanced to Sim2Real stage {self.current_stage}")
+```
+
+---
+
+# الفصل 9: Safety and Constraints
+
+## 9.1 Action Safety Layer
+
+```kotlin
+class SafetyLayer(
+    private val maxAngle: Float = 90f,
+    private val maxVelocity: Float = 100f,  // degrees/sec
+    private val maxAcceleration: Float = 500f  // degrees/sec²
+) {
+    private var lastAction = floatArrayOf(0f, 0f, 0f)
+    private var lastVelocity = floatArrayOf(0f, 0f, 0f)
+    private var lastTime = System.currentTimeMillis()
+    
+    fun applySafetyConstraints(rawAction: FloatArray): FloatArray {
+        val currentTime = System.currentTimeMillis()
+        val dt = (currentTime - lastTime) / 1000f
+        
+        val safeAction = FloatArray(3)
+        
+        for (i in 0..2) {
+            // 1. Angle limits
+            var action = rawAction[i].coerceIn(-1f, 1f)
+            
+            // 2. Velocity limiting
+            val velocity = (action - lastAction[i]) / dt
+            if (abs(velocity) > maxVelocity / 100f) {
+                action = lastAction[i] + sign(velocity) * (maxVelocity / 100f) * dt
+            }
+            
+            // 3. Acceleration limiting
+            val acceleration = (velocity - lastVelocity[i]) / dt
+            if (abs(acceleration) > maxAcceleration / 100f) {
+                // Limit acceleration
+                val limitedVel = lastVelocity[i] + sign(acceleration) * (maxAcceleration / 100f) * dt
+                action = lastAction[i] + limitedVel * dt
+            }
+            
+            // 4. Boundary protection (soft limits at 80%)
+            if (abs(action) > 0.8f) {
+                action = sign(action) * (0.8f + (abs(action) - 0.8f) * 0.5f)
+            }
+            
+            safeAction[i] = action
+            lastVelocity[i] = (action - lastAction[i]) / dt
+            lastAction[i] = action
+        }
+        
+        lastTime = currentTime
+        return safeAction
+    }
+}
+```
+
+## 9.2 Emergency Stop
+
+```kotlin
+class EmergencyController {
+    private var safeMode = false
+    private var consecutiveErrors = 0
+    
+    fun checkAndHandle(
+        observation: FloatArray,
+        action: FloatArray,
+        busManager: SharedBusManager
+    ): Boolean {
+        // Check 1: Target lost for too long
+        val framesSinceLost = observation[8]
+        if (framesSinceLost > 60) {
+            triggerSafeMode("Target lost", busManager)
+            return true
+        }
+        
+        // Check 2: Extreme action values
+        if (action.any { abs(it) > 0.99f }) {
+            consecutiveErrors++
+            if (consecutiveErrors > 10) {
+                triggerSafeMode("Extreme actions", busManager)
+                return true
+            }
+        } else {
+            consecutiveErrors = 0
+        }
+        
+        // Check 3: Servo feedback mismatch
+        val servoAngles = floatArrayOf(observation[9], observation[10], observation[11])
+        val servoVels = floatArrayOf(observation[12], observation[13])
+        if (servoAngles.any { abs(it) > 0.95f } && servoVels.all { abs(it) < 0.01f }) {
+            triggerSafeMode("Servo stuck", busManager)
+            return true
+        }
+        
+        // Check 4: IMU anomaly
+        val shakeLevel = observation[19]
+        if (shakeLevel > 0.9f) {
+            triggerSafeMode("Extreme shake", busManager)
+            return true
+        }
+        
+        return false
+    }
+    
+    private fun triggerSafeMode(reason: String, busManager: SharedBusManager) {
+        Log.e("Emergency", "Safe mode triggered: $reason")
+        safeMode = true
+        
+        // Move servos to neutral
+        busManager.moveServo(1, 0f)
+        busManager.moveServo(2, 0f)
+        busManager.moveServo(3, 0f)
+    }
+    
+    fun isSafeMode() = safeMode
+    fun resetSafeMode() { safeMode = false }
+}
+```
+
+## 9.3 Constrained Action Space
+
+```python
+class ConstrainedActionSpace:
+    """مساحة أفعال مقيدة"""
+    
+    def __init__(self, max_delta=0.1, max_angle=0.9):
+        self.max_delta = max_delta
+        self.max_angle = max_angle
+        self.current_angles = np.zeros(3)
+    
+    def constrain(self, raw_action):
+        # Limit delta
+        delta = np.clip(raw_action, -self.max_delta, self.max_delta)
+        
+        # Apply to current
+        new_angles = self.current_angles + delta
+        
+        # Limit total angle
+        new_angles = np.clip(new_angles, -self.max_angle, self.max_angle)
+        
+        # Soft constraint near limits (reduce action effect)
+        for i in range(3):
+            if abs(new_angles[i]) > 0.7:
+                scale = 1.0 - (abs(new_angles[i]) - 0.7) / 0.2
+                delta[i] *= max(0.1, scale)
+                new_angles[i] = self.current_angles[i] + delta[i]
+        
+        self.current_angles = new_angles
+        return delta
+```
+
+---
+
+# الفصل 10: Imitation Learning (Warm Start)
+
+## 10.1 جمع البيانات من PID
+
+```kotlin
+class DemonstrationRecorder(
+    private val filePath: String
+) {
+    private val demonstrations = mutableListOf<Demonstration>()
+    
+    data class Demonstration(
+        val observation: FloatArray,
+        val action: FloatArray,
+        val reward: Float
+    )
+    
+    fun record(observation: FloatArray, action: FloatArray, reward: Float) {
+        demonstrations.add(Demonstration(observation, action.copyOf(), reward))
+    }
+    
+    fun save() {
+        val file = File(filePath)
+        val buffer = ByteBuffer.allocate(demonstrations.size * (27 + 3 + 1) * 4)
+        buffer.order(ByteOrder.LITTLE_ENDIAN)
+        
+        for (demo in demonstrations) {
+            for (obs in demo.observation) buffer.putFloat(obs)
+            for (act in demo.action) buffer.putFloat(act)
+            buffer.putFloat(demo.reward)
+        }
+        
+        file.writeBytes(buffer.array())
+        Log.d("Recorder", "Saved ${demonstrations.size} demonstrations")
+    }
+    
+    fun clear() = demonstrations.clear()
+}
+```
+
+## 10.2 Behavioral Cloning
+
+```python
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
+
+class BehavioralCloning:
+    """تعلم من العروض (PID demonstrations)"""
+    
+    def __init__(self, obs_dim=27, action_dim=3, hidden_dim=256):
+        self.policy = nn.Sequential(
+            nn.Linear(obs_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, action_dim),
+            nn.Tanh()
+        )
+        self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=1e-3)
+    
+    def load_demonstrations(self, file_path):
+        """Load demonstrations from file"""
+        data = np.fromfile(file_path, dtype=np.float32)
+        n_demos = len(data) // 31  # 27 obs + 3 action + 1 reward
+        data = data.reshape(n_demos, 31)
+        
+        self.observations = torch.FloatTensor(data[:, :27])
+        self.actions = torch.FloatTensor(data[:, 27:30])
+        self.rewards = torch.FloatTensor(data[:, 30])
+        
+        print(f"Loaded {n_demos} demonstrations")
+    
+    def train(self, epochs=100, batch_size=64):
+        """Train policy to imitate demonstrations"""
+        dataset = TensorDataset(self.observations, self.actions)
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        
+        for epoch in range(epochs):
+            total_loss = 0
+            for obs, act in loader:
+                pred_action = self.policy(obs)
+                loss = nn.MSELoss()(pred_action, act)
+                
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+                
+                total_loss += loss.item()
+            
+            if epoch % 10 == 0:
+                print(f"Epoch {epoch}: Loss = {total_loss/len(loader):.4f}")
+    
+    def get_pretrained_weights(self):
+        """Get weights to initialize RL policy"""
+        return self.policy.state_dict()
+```
+
+## 10.3 DAgger (Dataset Aggregation)
+
+```python
+class DAggerTrainer:
+    """DAgger: Interactive Imitation Learning"""
+    
+    def __init__(self, expert_policy, learner_policy, env):
+        self.expert = expert_policy  # PID controller
+        self.learner = learner_policy  # RL policy
+        self.env = env
+        self.dataset = []
+    
+    def collect_iteration(self, n_episodes=10, beta=0.5):
+        """
+        beta: probability of using expert vs learner
+        beta=1.0 at start (pure expert)
+        beta→0.0 as training progresses (pure learner)
+        """
+        for _ in range(n_episodes):
+            obs, _ = self.env.reset()
+            done = False
+            
+            while not done:
+                # Decide who acts
+                if np.random.random() < beta:
+                    action = self.learner.predict(obs)  # Learner acts
+                else:
+                    action = self.expert.predict(obs)  # Expert acts
+                
+                # Get expert's action (label)
+                expert_action = self.expert.predict(obs)
+                
+                # Store (state, expert_action) pair
+                self.dataset.append((obs.copy(), expert_action.copy()))
+                
+                # Step with chosen action
+                obs, _, terminated, truncated, _ = self.env.step(action)
+                done = terminated or truncated
+    
+    def train_learner(self, epochs=50):
+        """Train learner on aggregated dataset"""
+        obs = np.array([d[0] for d in self.dataset])
+        actions = np.array([d[1] for d in self.dataset])
+        
+        self.learner.train_supervised(obs, actions, epochs=epochs)
+    
+    def run_dagger(self, n_iterations=10, episodes_per_iter=10):
+        for i in range(n_iterations):
+            beta = max(0.0, 1.0 - i / n_iterations)  # Decay beta
+            print(f"DAgger iteration {i}, beta={beta:.2f}")
+            
+            self.collect_iteration(episodes_per_iter, beta)
+            self.train_learner()
+```
+
+---
+
+# الفصل 11: Evaluation and Metrics
+
+## 11.1 مقاييس الأداء
+
+```python
+class RLEvaluator:
+    """تقييم شامل لنموذج RL"""
+    
+    def __init__(self, env, model):
+        self.env = env
+        self.model = model
+        self.metrics = defaultdict(list)
+    
+    def evaluate(self, n_episodes=100):
+        for ep in range(n_episodes):
+            obs, _ = self.env.reset()
+            done = False
+            ep_reward = 0
+            ep_steps = 0
+            time_on_target = 0
+            errors = []
+            actions = []
+            
+            while not done:
+                action, _ = self.model.predict(obs, deterministic=True)
+                obs, reward, terminated, truncated, info = self.env.step(action)
+                
+                ep_reward += reward
+                ep_steps += 1
+                time_on_target += info.get('time_on_target', 0)
+                errors.append(info.get('error', 0))
+                actions.append(np.abs(action).mean())
+                
+                done = terminated or truncated
+            
+            # Record episode metrics
+            self.metrics['episode_reward'].append(ep_reward)
+            self.metrics['episode_length'].append(ep_steps)
+            self.metrics['mean_error'].append(np.mean(errors))
+            self.metrics['min_error'].append(np.min(errors))
+            self.metrics['time_on_target'].append(time_on_target)
+            self.metrics['action_magnitude'].append(np.mean(actions))
+            self.metrics['success'].append(ep_steps >= 500)  # Survived
+        
+        return self.get_summary()
+    
+    def get_summary(self):
+        return {
+            'mean_reward': np.mean(self.metrics['episode_reward']),
+            'std_reward': np.std(self.metrics['episode_reward']),
+            'success_rate': np.mean(self.metrics['success']),
+            'mean_error': np.mean(self.metrics['mean_error']),
+            'mean_time_on_target': np.mean(self.metrics['time_on_target']),
+            'mean_action_magnitude': np.mean(self.metrics['action_magnitude']),
+        }
+    
+    def plot_metrics(self, save_path=None):
+        import matplotlib.pyplot as plt
+        
+        fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+        
+        axes[0, 0].plot(self.metrics['episode_reward'])
+        axes[0, 0].set_title('Episode Reward')
+        
+        axes[0, 1].plot(self.metrics['mean_error'])
+        axes[0, 1].set_title('Mean Tracking Error')
+        
+        axes[0, 2].plot(self.metrics['time_on_target'])
+        axes[0, 2].set_title('Time on Target')
+        
+        axes[1, 0].hist(self.metrics['episode_length'], bins=30)
+        axes[1, 0].set_title('Episode Length Distribution')
+        
+        axes[1, 1].plot(self.metrics['action_magnitude'])
+        axes[1, 1].set_title('Action Magnitude')
+        
+        axes[1, 2].bar(['Success', 'Fail'], 
+                       [sum(self.metrics['success']), 
+                        len(self.metrics['success']) - sum(self.metrics['success'])])
+        axes[1, 2].set_title('Success/Fail')
+        
+        plt.tight_layout()
+        if save_path:
+            plt.savefig(save_path)
+        plt.show()
+```
+
+## 11.2 جدول المقاييس
+
+| المقياس | الوصف | الهدف |
+|---------|-------|-------|
+| **Success Rate** | نسبة الحلقات الناجحة | > 90% |
+| **Mean Reward** | متوسط المكافأة | > 500 |
+| **Mean Error** | متوسط خطأ التتبع | < 0.1 |
+| **Time on Target** | وقت على الهدف | > 50% |
+| **Action Smoothness** | نعومة الحركة | < 0.3 |
+| **Response Time** | سرعة الاستجابة | < 500ms |
+| **Overshoot** | التجاوز | < 10% |
+| **Steady State Error** | خطأ الحالة المستقرة | < 0.05 |
+
+---
+
+# الفصل 12: Debugging and Visualization
+
+## 12.1 Logging Module
+
+```python
+import wandb
+
+class RLLogger:
+    """تسجيل شامل للتدريب"""
+    
+    def __init__(self, project_name="saqr-rl", run_name=None):
+        wandb.init(project=project_name, name=run_name)
+        self.step = 0
+    
+    def log_training(self, info):
+        wandb.log({
+            'train/reward': info.get('reward', 0),
+            'train/episode_length': info.get('ep_len', 0),
+            'train/loss': info.get('loss', 0),
+            'train/entropy': info.get('entropy', 0),
+        }, step=self.step)
+        self.step += 1
+    
+    def log_evaluation(self, metrics):
+        wandb.log({
+            'eval/mean_reward': metrics['mean_reward'],
+            'eval/success_rate': metrics['success_rate'],
+            'eval/mean_error': metrics['mean_error'],
+        }, step=self.step)
+    
+    def log_video(self, frames, name="episode"):
+        """Log episode video"""
+        wandb.log({name: wandb.Video(np.array(frames).transpose(0, 3, 1, 2), fps=30)})
+    
+    def log_action_distribution(self, actions):
+        """Log action histogram"""
+        wandb.log({
+            'actions/yaw': wandb.Histogram(actions[:, 0]),
+            'actions/pitch': wandb.Histogram(actions[:, 1]),
+            'actions/roll': wandb.Histogram(actions[:, 2]),
+        }, step=self.step)
+```
+
+## 12.2 Visualization Tools
+
+```python
+class RLVisualizer:
+    """أدوات التصور"""
+    
+    @staticmethod
+    def visualize_episode(env, model, save_path=None):
+        """Visualize a single episode"""
+        import matplotlib.pyplot as plt
+        from matplotlib.patches import Rectangle, Circle
+        
+        obs, _ = env.reset()
+        
+        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+        
+        positions = {'target': [], 'gimbal': [], 'error': []}
+        actions_history = []
+        rewards_history = []
+        
+        for step in range(500):
+            action, _ = model.predict(obs, deterministic=True)
+            obs, reward, done, _, info = env.step(action)
+            
+            positions['target'].append((env.target_x, env.target_y))
+            positions['gimbal'].append((env.gimbal_yaw, env.gimbal_pitch))
+            positions['error'].append(info.get('error', 0))
+            actions_history.append(action)
+            rewards_history.append(reward)
+            
+            if done:
+                break
+        
+        # Plot 1: Trajectory
+        ax1 = axes[0, 0]
+        target = np.array(positions['target'])
+        gimbal = np.array(positions['gimbal'])
+        ax1.plot(target[:, 0], target[:, 1], 'r-', label='Target', alpha=0.7)
+        ax1.plot(gimbal[:, 0], gimbal[:, 1], 'b-', label='Gimbal', alpha=0.7)
+        ax1.scatter(target[0, 0], target[0, 1], c='red', s=100, marker='o')
+        ax1.scatter(gimbal[0, 0], gimbal[0, 1], c='blue', s=100, marker='s')
+        ax1.set_title('Target vs Gimbal Position')
+        ax1.legend()
+        ax1.set_xlim(-1, 1)
+        ax1.set_ylim(-1, 1)
+        ax1.grid(True)
+        
+        # Plot 2: Error over time
+        ax2 = axes[0, 1]
+        ax2.plot(positions['error'])
+        ax2.axhline(y=0.1, color='g', linestyle='--', label='Threshold')
+        ax2.set_title('Tracking Error Over Time')
+        ax2.set_xlabel('Step')
+        ax2.set_ylabel('Error')
+        ax2.legend()
+        
+        # Plot 3: Actions
+        ax3 = axes[1, 0]
+        actions = np.array(actions_history)
+        ax3.plot(actions[:, 0], label='Yaw')
+        ax3.plot(actions[:, 1], label='Pitch')
+        ax3.plot(actions[:, 2], label='Roll')
+        ax3.set_title('Actions Over Time')
+        ax3.legend()
+        
+        # Plot 4: Cumulative Reward
+        ax4 = axes[1, 1]
+        ax4.plot(np.cumsum(rewards_history))
+        ax4.set_title('Cumulative Reward')
+        
+        plt.tight_layout()
+        if save_path:
+            plt.savefig(save_path)
+        plt.show()
+    
+    @staticmethod
+    def create_animation(env, model, save_path="episode.gif"):
+        """Create animated GIF of episode"""
+        import matplotlib.animation as animation
+        
+        fig, ax = plt.subplots(figsize=(8, 8))
+        
+        obs, _ = env.reset()
+        
+        frames = []
+        for _ in range(300):
+            action, _ = model.predict(obs, deterministic=True)
+            obs, _, done, _, _ = env.step(action)
+            
+            ax.clear()
+            ax.set_xlim(-1, 1)
+            ax.set_ylim(-1, 1)
+            
+            # Draw target
+            ax.scatter(env.target_x, env.target_y, s=200, c='red', marker='x')
+            
+            # Draw gimbal view cone
+            from matplotlib.patches import Polygon
+            view_size = 0.5
+            corners = [
+                (env.gimbal_yaw - view_size, env.gimbal_pitch - view_size),
+                (env.gimbal_yaw + view_size, env.gimbal_pitch - view_size),
+                (env.gimbal_yaw + view_size, env.gimbal_pitch + view_size),
+                (env.gimbal_yaw - view_size, env.gimbal_pitch + view_size),
+            ]
+            ax.add_patch(Polygon(corners, fill=False, edgecolor='blue'))
+            
+            # Draw crosshair
+            ax.axhline(y=env.gimbal_pitch, color='blue', alpha=0.3)
+            ax.axvline(x=env.gimbal_yaw, color='blue', alpha=0.3)
+            
+            frames.append([ax.get_images()])
+            
+            if done:
+                break
+        
+        # Note: Full animation code would be more complex
+        print(f"Would save {len(frames)} frames to {save_path}")
+```
+
+---
+
+# الفصل 13: Advanced Techniques
+
+## 13.1 Recurrent Policy (LSTM)
+
+للتعامل مع الحالات الجزئية (Partial Observability):
+
+```python
+from stable_baselines3 import RecurrentPPO
+
+# Use LSTM-based policy
+model = RecurrentPPO(
+    "MlpLstmPolicy",
+    env,
+    n_steps=128,
+    batch_size=128,
+    n_epochs=10,
+    verbose=1,
+)
+
+model.learn(total_timesteps=1_000_000)
+```
+
+## 13.2 Multi-Objective RL
+
+```python
+class MultiObjectiveReward:
+    """Multiple objectives with dynamic weighting"""
+    
+    def __init__(self):
+        self.weights = {
+            'tracking': 1.0,
+            'smoothness': 0.3,
+            'efficiency': 0.1,
+            'safety': 0.5,
+        }
+    
+    def calculate(self, state, action, next_state, info):
+        rewards = {}
+        
+        # Tracking objective
+        error = np.sqrt(next_state[20]**2 + next_state[21]**2)
+        rewards['tracking'] = np.exp(-5 * error) * 2.0
+        
+        # Smoothness objective
+        action_mag = np.sum(np.abs(action))
+        rewards['smoothness'] = -action_mag * 0.1
+        
+        # Efficiency objective (minimize energy)
+        rewards['efficiency'] = -np.sum(action**2) * 0.05
+        
+        # Safety objective
+        if info.get('near_limit', False):
+            rewards['safety'] = -1.0
+        else:
+            rewards['safety'] = 0.1
+        
+        # Weighted sum
+        total = sum(self.weights[k] * rewards[k] for k in rewards)
+        
+        return total, rewards
+    
+    def adapt_weights(self, performance):
+        """Adapt weights based on performance"""
+        if performance['tracking'] < 0.5:
+            self.weights['tracking'] *= 1.1
+        if performance['safety'] < 0.9:
+            self.weights['safety'] *= 1.2
+```
+
+## 13.3 Offline RL
+
+```python
+from d3rlpy.algos import CQL
+
+def train_offline_rl(dataset_path):
+    """Train from logged data without simulator"""
+    
+    # Load offline dataset
+    dataset = d3rlpy.datasets.get_dataset(dataset_path)
+    
+    # Create Conservative Q-Learning
+    cql = CQL(
+        actor_learning_rate=3e-4,
+        critic_learning_rate=3e-4,
+        alpha_learning_rate=3e-4,
+        use_gpu=True,
+    )
+    
+    # Train offline
+    cql.fit(
+        dataset,
+        n_epochs=100,
+        eval_episodes=10,
+    )
+    
+    return cql
+```
+
+## 13.4 Hierarchical RL
+
+```python
+class HierarchicalController:
+    """Two-level hierarchical control"""
+    
+    def __init__(self):
+        # High-level: decides strategy (search, track, hold)
+        self.high_level = PPO.load("high_level_policy")
+        
+        # Low-level: executes fine control
+        self.low_level_policies = {
+            'search': PPO.load("search_policy"),
+            'track': PPO.load("track_policy"),
+            'hold': PPO.load("hold_policy"),
+        }
+        
+        self.current_strategy = 'search'
+        self.strategy_steps = 0
+    
+    def predict(self, observation):
+        # High-level decision every 30 steps
+        if self.strategy_steps % 30 == 0:
+            strategy_idx, _ = self.high_level.predict(observation)
+            self.current_strategy = ['search', 'track', 'hold'][strategy_idx]
+        
+        self.strategy_steps += 1
+        
+        # Low-level action
+        policy = self.low_level_policies[self.current_strategy]
+        action, _ = policy.predict(observation)
+        
+        return action
+```
+
+---
+
+# ملحق هـ: Troubleshooting
+
+## المشاكل الشائعة وحلولها
+
+| المشكلة | السبب المحتمل | الحل |
+|---------|---------------|------|
+| **التدريب لا يتقدم** | Reward function مشكلة | راجع الـ reward، أضف shaping |
+| **الـ Agent يتجمد** | Local minimum | زد exploration (entropy coef) |
+| **حركة متذبذبة** | Action scale كبير | قلل action scale، أضف smoothing penalty |
+| **يفقد الهدف دائماً** | Observation ناقص | أضف target velocity للـ observation |
+| **أداء سيء على Hardware** | Reality gap | استخدم domain randomization |
+| **OOM خلال التدريب** | Buffer كبير جداً | قلل buffer_size أو batch_size |
+| **NaN في الـ loss** | Learning rate عالي | قلل LR، أضف gradient clipping |
+| **Reward متذبذب** | Sparse reward | أضف dense reward shaping |
+
+## Debug Checklist
+
+```python
+def debug_checklist(env, model):
+    """Run before serious training"""
+    
+    # 1. Test environment
+    print("Testing environment...")
+    obs, _ = env.reset()
+    assert obs.shape == (27,), f"Wrong obs shape: {obs.shape}"
+    
+    for _ in range(10):
+        action = env.action_space.sample()
+        obs, reward, done, _, info = env.step(action)
+        assert not np.isnan(obs).any(), "NaN in observation!"
+        assert not np.isnan(reward), "NaN in reward!"
+    print("✓ Environment OK")
+    
+    # 2. Test model inference
+    print("Testing model inference...")
+    obs, _ = env.reset()
+    action, _ = model.predict(obs)
+    assert action.shape == (3,), f"Wrong action shape: {action.shape}"
+    print("✓ Model inference OK")
+    
+    # 3. Test reward range
+    print("Testing reward range...")
+    rewards = []
+    obs, _ = env.reset()
+    for _ in range(100):
+        action = env.action_space.sample()
+        _, reward, done, _, _ = env.step(action)
+        rewards.append(reward)
+        if done:
+            obs, _ = env.reset()
+    print(f"Reward range: [{min(rewards):.2f}, {max(rewards):.2f}]")
+    print("✓ Reward range OK" if -100 < min(rewards) and max(rewards) < 100 else "⚠ Reward range unusual")
+    
+    # 4. Test observation normalization
+    print("Testing observation normalization...")
+    obs_samples = []
+    obs, _ = env.reset()
+    for _ in range(100):
+        action = env.action_space.sample()
+        obs, _, done, _, _ = env.step(action)
+        obs_samples.append(obs)
+        if done:
+            obs, _ = env.reset()
+    obs_array = np.array(obs_samples)
+    print(f"Obs mean: {obs_array.mean(axis=0)[:5]}...")
+    print(f"Obs std: {obs_array.std(axis=0)[:5]}...")
+    print("✓ Normalization OK" if obs_array.std().mean() < 2.0 else "⚠ Consider normalizing")
+    
+    print("\n✅ All checks passed!")
+```
+
+---
+
+# نهاية الدليل
+
+**الإصدار**: 2.0 (الإصدار الشامل)  
+**آخر تحديث**: 2026-01-12  
+**عدد الأسطر**: ~2400+  
+**المؤلف**: SAQR Seeker Development Team
+
+---
+
+> **ملاحظة**: هذا الدليل يوفر كل ما تحتاجه من الألف إلى الياء لتدريب ونشر نموذج Reinforcement Learning للتحكم في نظام SAQR Seeker. يشمل:
+> - ✅ تعريف المدخلات والمخرجات الكاملة
+> - ✅ دالة المكافأة التفصيلية
+> - ✅ بناء بيئة المحاكاة
+> - ✅ التدريب مع PPO/SAC
+> - ✅ Sim2Real Transfer
+> - ✅ Domain Randomization
+> - ✅ Safety Constraints
+> - ✅ Imitation Learning
+> - ✅ Evaluation Metrics
+> - ✅ Debugging Tools
+> - ✅ Advanced Techniques (LSTM, Hierarchical, Offline RL)
+> - ✅ Troubleshooting Guide

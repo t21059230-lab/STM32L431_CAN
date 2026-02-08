@@ -1,0 +1,11 @@
+# STM32CubeIDE / Eclipse
+Debug/
+Release/
+.settings/
+.metadata/
+*.launch
+*.bak
+*.tmp
+*.o
+*.d
+*.su

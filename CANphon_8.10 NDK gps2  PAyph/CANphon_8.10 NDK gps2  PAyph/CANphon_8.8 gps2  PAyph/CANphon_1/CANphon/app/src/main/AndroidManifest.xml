@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Camera Permission for Tracking -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="true" />
+
+    <!-- Storage Permission for GPS Data Logging -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+
+    <!-- Location Permission for Phone GPS -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- High-Frequency Sensors for Android 12+ (S23 Ultra fix) -->
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+
+    <application android:allowBackup="true" android:dataExtractionRules="@xml/data_extraction_rules" android:fullBackupContent="@xml/backup_rules" android:icon="@mipmap/ic_launcher" android:label="@string/app_name" android:roundIcon="@mipmap/ic_launcher_round" android:supportsRtl="true" android:theme="@style/Theme.CANPhon">
+        <activity android:name=".ui.MainActivity" android:exported="true" android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- USB Auto-Connect (بدون إذن) -->
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" android:resource="@xml/device_filter" />
+        </activity>
+
+        <!-- Tracking Activity -->
+        <activity android:name=".tracking.TrackingActivity" android:screenOrientation="landscape" android:exported="false" />
+
+        <!-- GPS Viewer Activity -->
+        <activity android:name=".gps.GPSActivity" android:label="GPS الخارجي" android:exported="false" />
+
+        <!-- Graph Activity -->
+        <activity android:name=".ui.GraphActivity" android:label="رسم بياني حي" android:screenOrientation="landscape" android:exported="false" />
+
+        <!-- Raw Sensors Activity - حساسات خام -->
+        <activity android:name=".RawSensorsActivity" android:label="حساسات خام" android:screenOrientation="portrait" android:exported="false" />
+    </application>
+
+</manifest>

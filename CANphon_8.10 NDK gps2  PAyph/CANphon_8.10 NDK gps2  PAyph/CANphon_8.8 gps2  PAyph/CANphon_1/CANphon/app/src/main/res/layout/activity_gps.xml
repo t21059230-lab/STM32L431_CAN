@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1A1A2E"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- زر التسجيل -->
+        <LinearLayout
+            android:id="@+id/recordCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/card_background"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical">
+            
+            <View
+                android:id="@+id/recordIndicator"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:background="@drawable/circle_gray" />
+            
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="12dp">
+                
+                <TextView
+                    android:id="@+id/tvRecordStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚪ اضغط للتسجيل"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+                
+                <TextView
+                    android:id="@+id/tvRecordInfo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📁 Downloads/GPS_*.csv"
+                    android:textColor="#AAAAAA"
+                    android:textSize="12sp" />
+            </LinearLayout>
+            
+            <TextView
+                android:id="@+id/tvRecordStats"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:fontFamily="monospace"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- حالة الاتصال -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📡 حالة الاتصال"
+            android:textColor="#4FC3F7"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/card_background"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:layout_marginTop="8dp">
+            
+            <TextView
+                android:id="@+id/tvConnectionStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⚪ غير متصل"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <!-- بيانات الموقع -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📍 بيانات الموقع"
+            android:textColor="#4FC3F7"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/card_background"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:layout_marginTop="8dp">
+            
+            <include layout="@layout/item_data_row" android:id="@+id/rowLatitude" />
+            <include layout="@layout/item_data_row" android:id="@+id/rowLongitude" />
+            <include layout="@layout/item_data_row" android:id="@+id/rowAltitude" />
+            
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#333333" android:layout_marginVertical="8dp" />
+            
+            <include layout="@layout/item_data_row" android:id="@+id/rowSpeed" />
+            <include layout="@layout/item_data_row" android:id="@+id/rowHeading" />
+        </LinearLayout>
+
+        <!-- الأقمار الصناعية -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🛰️ الأقمار الصناعية"
+            android:textColor="#4FC3F7"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/card_background"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:layout_marginTop="8dp">
+            
+            <include layout="@layout/item_data_row" android:id="@+id/rowSatGps" />
+            <include layout="@layout/item_data_row" android:id="@+id/rowSatGlonass" />
+            <include layout="@layout/item_data_row" android:id="@+id/rowSatTotal" />
+            
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#333333" android:layout_marginVertical="8dp" />
+            
+            <include layout="@layout/item_data_row" android:id="@+id/rowHdop" />
+            <include layout="@layout/item_data_row" android:id="@+id/rowFix" />
+        </LinearLayout>
+
+        <!-- السرعة NED -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🚀 السرعة (NED)"
+            android:textColor="#4FC3F7"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/card_background"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:layout_marginTop="8dp">
+            
+            <include layout="@layout/item_data_row" android:id="@+id/rowVn" />
+            <include layout="@layout/item_data_row" android:id="@+id/rowVe" />
+            <include layout="@layout/item_data_row" android:id="@+id/rowVd" />
+        </LinearLayout>
+
+        <!-- الإحصائيات -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📈 الإحصائيات"
+            android:textColor="#4FC3F7"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/card_background"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="32dp">
+            
+            <include layout="@layout/item_data_row" android:id="@+id/rowMessages" />
+            <include layout="@layout/item_data_row" android:id="@+id/rowErrors" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

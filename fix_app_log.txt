@@ -1,0 +1,32 @@
+Starting App Repair... 
+Creating app directory... 
+Copying app folder (Robust)... 
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.gitignore
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\build.gradle.kts
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\proguard-rules.pro
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\hash_key.txt
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\.ninja_deps
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\.ninja_log
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\additional_project_files.txt
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\android_gradle_build.json
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\android_gradle_build_mini.json
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\build.ninja
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\build_file_index.txt
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\CMakeCache.txt
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\cmake_install.cmake
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\compile_commands.json
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\compile_commands.json.bin
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\configure_fingerprint.bin
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\metadata_generation_command.txt
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\prefab_config.json
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\symbol_folder_index.txt
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\.cmake\api\v1\query\client-agp\cache-v2
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\.cmake\api\v1\query\client-agp\cmakeFiles-v1
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\.cmake\api\v1\query\client-agp\codemodel-v2
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\.cmake\api\v1\reply\cache-v2-d9e1592137a47184de1e.json
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\.cmake\api\v1\reply\cmakeFiles-v1-c6838b74b37266eefb3f.json
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\.cmake\api\v1\reply\codemodel-v2-f42c2bec6848334054ce.json
+CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\app\.cxx\Debug\3065171i\arm64-v8a\.cmake\api\v1\reply\directory-.-Debug-d0094a50bb2071803777.json
+File creation error - The system cannot find the path specified.
+
+XCOPY APP FAILED! 

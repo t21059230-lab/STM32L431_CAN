@@ -1,0 +1,18 @@
+Checking C:\CANPhon structure 
+.gitignore
+.gradle
+build.gradle.kts
+gps.zip
+gradle.properties
+gradlew
+gradlew.bat
+local.properties
+settings.gradle.kts
+telemetry_viewer_v3.py
+telemetry_viewer_v3_pyqtgraph.py
+telemetry_viewer_v4.py
+ 
+Checking gradle wrapper in C:\CANPhon... 
+ 
+Checking source for gradle-wrapper.jar... 
+C:\Users\ZD\Desktop\Release\CAN 2 .1\CAN 2 .1.1.1\CAN 2 .1\CAN 2\CANphon_8.10 NDK gps2  PAyph\CANphon_8.10 NDK gps2  PAyph\CANphon_8.8 gps2  PAyph\CANphon_1\CANphon\gradle\wrapper\gradle-wrapper.jar

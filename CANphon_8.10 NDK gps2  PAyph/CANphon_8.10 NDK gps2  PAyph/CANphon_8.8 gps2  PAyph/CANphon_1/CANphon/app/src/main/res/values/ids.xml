@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="tvConnectionStatus" type="id" />
+    <item name="tvServo1" type="id" />
+    <item name="tvYaw" type="id" />
+    <item name="tvRoll" type="id" />
+    <item name="tvPitch" type="id" />
+    <item name="tvServo2" type="id" />
+    <item name="tvServo3" type="id" />
+    <item name="tvServo4" type="id" />
+</resources>

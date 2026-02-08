@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent" android:layout_height="match_parent" android:background="#1A1A2E" android:fillViewport="true" tools:context=".MainActivity">
+
+    <LinearLayout android:id="@+id/main" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
+
+        <!-- Title -->
+        <TextView android:id="@+id/tvTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎮 CANphon" android:textSize="28sp" android:textColor="#FFFFFF" android:textStyle="bold" android:layout_gravity="center" android:layout_marginTop="16dp" />
+
+        <!-- Status Indicators Container -->
+        <LinearLayout android:id="@+id/layoutStatus" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_gravity="center" android:layout_marginTop="16dp">
+
+            <!-- CAN Status -->
+            <TextView android:id="@+id/statusCAN" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🔴 CAN" android:textSize="16sp" android:textStyle="bold" android:textColor="#FF6B6B" android:layout_marginEnd="16dp" />
+
+            <!-- Launch (STM32) Status -->
+            <TextView android:id="@+id/statusSTM32" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🔴 Launch" android:textSize="16sp" android:textStyle="bold" android:textColor="#FF6B6B" android:layout_marginEnd="16dp" />
+
+            <!-- Telemetry Status -->
+            <TextView android:id="@+id/statusTelemetry" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🔴 Telemetry" android:textSize="16sp" android:textStyle="bold" android:textColor="#FF6B6B" android:layout_marginEnd="16dp" />
+
+            <!-- GPS Status (NEW) -->
+            <TextView android:id="@+id/statusGPS" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🔴 GPS" android:textSize="16sp" android:textStyle="bold" android:textColor="#FF6B6B" />
+
+        </LinearLayout>
+
+        <!-- Orientation Card -->
+        <androidx.cardview.widget.CardView android:id="@+id/cardOrientation" android:layout_width="match_parent" android:layout_height="wrap_content" app:cardBackgroundColor="#16213E" app:cardCornerRadius="16dp" app:cardElevation="8dp" android:layout_marginTop="24dp">
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="📱 Phone Orientation" android:textSize="16sp" android:textColor="#808080" android:layout_marginBottom="12dp" />
+
+                <!-- Roll -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
+
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Roll" android:textSize="18sp" android:textColor="#AAAAAA" />
+
+                    <TextView android:id="@+id/tvRoll" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0.0°" android:textSize="20sp" android:textColor="#4ECCA3" android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Pitch -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
+
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Pitch" android:textSize="18sp" android:textColor="#AAAAAA" />
+
+                    <TextView android:id="@+id/tvPitch" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0.0°" android:textSize="20sp" android:textColor="#FFD93D" android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Yaw -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Yaw" android:textSize="18sp" android:textColor="#AAAAAA" />
+
+                    <TextView android:id="@+id/tvYaw" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0.0°" android:textSize="20sp" android:textColor="#6BCB77" android:textStyle="bold" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Servos Card -->
+        <androidx.cardview.widget.CardView android:id="@+id/cardServos" android:layout_width="match_parent" android:layout_height="wrap_content" app:cardBackgroundColor="#16213E" app:cardCornerRadius="16dp" app:cardElevation="8dp" android:layout_marginTop="16dp">
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⚙️ Servo Positions" android:textSize="16sp" android:textColor="#808080" android:layout_marginBottom="12dp" />
+
+                <!-- Servo 1 -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
+
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Servo 1 (Roll)" android:textSize="16sp" android:textColor="#AAAAAA" />
+
+                    <TextView android:id="@+id/tvServo1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0.0°" android:textSize="16sp" android:textColor="#4ECCA3" />
+                </LinearLayout>
+
+                <!-- Servo 2 -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
+
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Servo 2 (Pitch)" android:textSize="16sp" android:textColor="#AAAAAA" />
+
+                    <TextView android:id="@+id/tvServo2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0.0°" android:textSize="16sp" android:textColor="#FFD93D" />
+                </LinearLayout>
+
+                <!-- Servo 3 -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
+
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Servo 3 (Yaw)" android:textSize="16sp" android:textColor="#AAAAAA" />
+
+                    <TextView android:id="@+id/tvServo3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0.0°" android:textSize="16sp" android:textColor="#6BCB77" />
+                </LinearLayout>
+
+                <!-- Servo 4 -->
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Servo 4 (Aux)" android:textSize="16sp" android:textColor="#AAAAAA" />
+
+                    <TextView android:id="@+id/tvServo4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0.0°" android:textSize="16sp" android:textColor="#808080" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- 🚀 Launch Coordinates Card (NEW) -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <androidx.cardview.widget.CardView android:id="@+id/cardLaunchCoords" android:layout_width="match_parent" android:layout_height="wrap_content" app:cardBackgroundColor="#16213E" app:cardCornerRadius="16dp" app:cardElevation="8dp" android:layout_marginTop="16dp">
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🚀 إحداثيات الإطلاق" android:textSize="16sp" android:textColor="#4ECCA3" android:textStyle="bold" android:layout_marginBottom="12dp" />
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+
+                    <!-- Latitude -->
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="8dp">
+
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="خط العرض" android:textSize="12sp" android:textColor="#AAAAAA" android:layout_marginBottom="4dp" />
+
+                        <EditText android:id="@+id/etLaunchLat" android:layout_width="match_parent" android:layout_height="48dp" android:background="@drawable/edit_text_background" android:hint="24.7136" android:textColorHint="#555555" android:textColor="#FFFFFF" android:textSize="16sp" android:inputType="numberDecimal|numberSigned" android:paddingStart="12dp" android:paddingEnd="12dp" android:gravity="center" />
+                    </LinearLayout>
+
+                    <!-- Longitude -->
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="8dp">
+
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="خط الطول" android:textSize="12sp" android:textColor="#AAAAAA" android:layout_marginBottom="4dp" />
+
+                        <EditText android:id="@+id/etLaunchLon" android:layout_width="match_parent" android:layout_height="48dp" android:background="@drawable/edit_text_background" android:hint="46.6753" android:textColorHint="#555555" android:textColor="#FFFFFF" android:textSize="16sp" android:inputType="numberDecimal|numberSigned" android:paddingStart="12dp" android:paddingEnd="12dp" android:gravity="center" />
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- 🎯 Target Coordinates Card (NEW) -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <androidx.cardview.widget.CardView android:id="@+id/cardTargetCoords" android:layout_width="match_parent" android:layout_height="wrap_content" app:cardBackgroundColor="#16213E" app:cardCornerRadius="16dp" app:cardElevation="8dp" android:layout_marginTop="16dp">
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎯 إحداثيات الهدف" android:textSize="16sp" android:textColor="#FFD93D" android:textStyle="bold" android:layout_marginBottom="12dp" />
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+
+                    <!-- Latitude -->
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="8dp">
+
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="خط العرض" android:textSize="12sp" android:textColor="#AAAAAA" android:layout_marginBottom="4dp" />
+
+                        <EditText android:id="@+id/etTargetLat" android:layout_width="match_parent" android:layout_height="48dp" android:background="@drawable/edit_text_background" android:hint="24.8000" android:textColorHint="#555555" android:textColor="#FFFFFF" android:textSize="16sp" android:inputType="numberDecimal|numberSigned" android:paddingStart="12dp" android:paddingEnd="12dp" android:gravity="center" />
+                    </LinearLayout>
+
+                    <!-- Longitude -->
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="8dp">
+
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="خط الطول" android:textSize="12sp" android:textColor="#AAAAAA" android:layout_marginBottom="4dp" />
+
+                        <EditText android:id="@+id/etTargetLon" android:layout_width="match_parent" android:layout_height="48dp" android:background="@drawable/edit_text_background" android:hint="46.7000" android:textColorHint="#555555" android:textColor="#FFFFFF" android:textSize="16sp" android:inputType="numberDecimal|numberSigned" android:paddingStart="12dp" android:paddingEnd="12dp" android:gravity="center" />
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- Action Buttons -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+
+        <!-- LAUNCH Button -->
+        <Button android:id="@+id/btnLaunch" android:layout_width="match_parent" android:layout_height="56dp" android:text="🚀 LAUNCH" android:textSize="18sp" android:textColor="#FFFFFF" android:backgroundTint="#F44336" android:layout_marginTop="16dp" />
+
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- 🔧 L431 GPIO Control Buttons (NEW) -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <LinearLayout android:id="@+id/layoutL431Buttons" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="12dp">
+
+            <!-- L431 Power ON Button -->
+            <Button android:id="@+id/btnL431PowerOn" android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1" android:text="⚡ تشغيل" android:textSize="16sp" android:textColor="#FFFFFF" android:backgroundTint="#27AE60" android:layout_marginEnd="6dp" />
+
+            <!-- L431 Power OFF Button -->
+            <Button android:id="@+id/btnL431PowerOff" android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1" android:text="🔴 إطفاء" android:textSize="16sp" android:textColor="#FFFFFF" android:backgroundTint="#C0392B" android:layout_marginStart="6dp" />
+
+        </LinearLayout>
+
+        <!-- Tracking Button -->
+        <Button android:id="@+id/btnTracking" android:layout_width="match_parent" android:layout_height="56dp" android:text="📸 كاميرا التتبع" android:textSize="18sp" android:textColor="#FFFFFF" android:backgroundTint="#9B59B6" android:layout_marginTop="8dp" />
+
+        <!-- Record Button -->
+        <Button android:id="@+id/btnRecord" android:layout_width="match_parent" android:layout_height="56dp" android:text="⏺ بدء التسجيل" android:textSize="18sp" android:textColor="#FFFFFF" android:backgroundTint="#3498DB" android:layout_marginTop="8dp" />
+
+        <!-- GPS Button -->
+        <Button android:id="@+id/btnGPS" android:layout_width="match_parent" android:layout_height="56dp" android:text="🛰️ GPS الخارجي" android:textSize="18sp" android:textColor="#FFFFFF" android:backgroundTint="#27AE60" android:layout_marginTop="8dp" />
+
+        <!-- Raw Sensors Button -->
+        <Button android:id="@+id/btnRawSensors" android:layout_width="match_parent" android:layout_height="56dp" android:text="📡 حساسات خام" android:textSize="18sp" android:textColor="#FFFFFF" android:backgroundTint="#E67E22" android:layout_marginTop="8dp" />
+
+        <!-- Graph Button -->
+        <Button android:id="@+id/btnGraph" android:layout_width="match_parent" android:layout_height="56dp" android:text="📉 رسم بياني حي" android:textSize="18sp" android:textColor="#FFFFFF" android:backgroundTint="#8E44AD" android:layout_marginTop="8dp" />
+
+        <!-- Update Rate -->
+        <TextView android:id="@+id/tvUpdateRate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="60Hz Control Loop" android:textSize="14sp" android:textColor="#555555" android:layout_gravity="center" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
+
+    </LinearLayout>
+
+</ScrollView>
