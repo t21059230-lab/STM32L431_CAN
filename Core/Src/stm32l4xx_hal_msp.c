@@ -105,7 +105,7 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef *hcan) {
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
     /* CAN1 interrupt Init */
-    HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 2, 0);
     HAL_NVIC_EnableIRQ(CAN1_RX0_IRQn);
     /* USER CODE BEGIN CAN1_MspInit 1 */
 
@@ -201,6 +201,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart) {
     HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
     HAL_NVIC_SetPriority(USART2_IRQn, 1, 0);
     HAL_NVIC_EnableIRQ(USART2_IRQn);
+
     /* USER CODE END USART2_MspInit 1 */
   } else if (huart->Instance == USART3) {
     /* USER CODE BEGIN USART3_MspInit 0 */
@@ -232,7 +233,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart) {
 
     /* USER CODE BEGIN USART3_MspInit 1 */
     // Enable USART3 Interrupt for RX Callback
-    HAL_NVIC_SetPriority(USART3_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(USART3_IRQn, 3, 0);
     HAL_NVIC_EnableIRQ(USART3_IRQn);
     /* USER CODE END USART3_MspInit 1 */
   }

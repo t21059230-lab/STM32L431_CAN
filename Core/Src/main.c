@@ -38,20 +38,29 @@ CAN_HandleTypeDef hcan1;
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
-// ===== DMA HANDLE (defined in MSP, extern here) =====
 DMA_HandleTypeDef hdma_usart2_rx;
 
-// ===== DMA RECEIVE BUFFER =====
-#define DMA_RX_BUFFER_SIZE 14 // 2 frames
+#define DMA_RX_BUFFER_SIZE 14
 uint8_t dmaRxBuffer[DMA_RX_BUFFER_SIZE] = {0};
 uint8_t feedbackBuffer[FEEDBACK_FRAME_LEN + 1] = {0};
 volatile uint8_t feedbackReady = 0;
 volatile uint8_t blinkServoId = 0;
 volatile uint8_t feedbackDebugBlink = 0;
 
-// ===== DEBUG COUNTERS =====
-volatile uint32_t uartRxCount = 0;        // Total UART events
-volatile uint32_t feedbackFrameCount = 0; // Complete feedback frames
+volatile uint32_t uartRxCount = 0;
+volatile uint32_t feedbackFrameCount = 0;
+
+#define CMD_QUEUE_SIZE 8
+typedef struct {
+  uint8_t servoId;
+  int32_t position;
+} ServoCommand;
+static volatile ServoCommand cmdQueue[CMD_QUEUE_SIZE];
+static volatile uint8_t cmdQueueHead = 0;
+static volatile uint8_t cmdQueueTail = 0;
+
+static uint32_t lastCmdTick = 0;
+#define MIN_CMD_INTERVAL_MS 5
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -76,41 +85,27 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
   if (huart->Instance == USART2) {
     uartRxCount++;
 
-    // 1. Copy DMA buffer to Ring Buffer
     for (uint16_t i = 0; i < Size; i++) {
       rxRingBuffer[rxRingHead] = dmaRxBuffer[i];
       rxRingHead = (rxRingHead + 1) % RX_BUFFER_SIZE;
     }
 
-    // 2. Process Ring Buffer for Frames
-    // We need at least 7 bytes for a frame
     while (1) {
       uint16_t available = (rxRingHead >= rxRingTail)
                                ? (rxRingHead - rxRingTail)
                                : (RX_BUFFER_SIZE - rxRingTail + rxRingHead);
 
       if (available < FEEDBACK_FRAME_LEN)
-        break; // Not enough data for a frame
+        break;
 
-      // Peek first byte (Sync Check)
       uint8_t syncByte = rxRingBuffer[rxRingTail];
 
       if ((syncByte & 0x80) == 0x80) {
-        // Potential Start of Frame found
-        // Check if we have the full 7 bytes wrapping around capabilities
-        // Linearize to temp buffer for easy processing
         uint8_t tempFrame[FEEDBACK_FRAME_LEN];
         for (int k = 0; k < FEEDBACK_FRAME_LEN; k++) {
           tempFrame[k] = rxRingBuffer[(rxRingTail + k) % RX_BUFFER_SIZE];
         }
 
-        // Verify Checksum (Simple XOR of first 4 bytes for 5-byte packet,
-        // but here we have 7 bytes? Let's check checksum logic)
-        // The servo sends: [Sync] [Id] [PosH] [PosL] [Chk] ... ?
-        // Our valid check is just Sync ID + length for now.
-        // Better to process it.
-
-        // Extract to global feedbackBuffer
         for (int k = 0; k < FEEDBACK_FRAME_LEN; k++) {
           feedbackBuffer[k] = tempFrame[k];
         }
@@ -118,20 +113,13 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
         feedbackFrameCount++;
         feedbackReady = 1;
 
-        // Advance Tail by frame length
         rxRingTail = (rxRingTail + FEEDBACK_FRAME_LEN) % RX_BUFFER_SIZE;
 
-        // Notify Main Loop immediately (optional, or wait for loop)
-        Bridge_ProcessFeedback(feedbackBuffer);
-        feedbackReady = 0; // Consumed
-
       } else {
-        // Not a sync byte, skip one byte to slide window
         rxRingTail = (rxRingTail + 1) % RX_BUFFER_SIZE;
       }
     }
 
-    // Re-arm DMA
     HAL_UARTEx_ReceiveToIdle_DMA(&huart2, dmaRxBuffer, DMA_RX_BUFFER_SIZE);
     __HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);
   }
@@ -143,11 +131,23 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
   uint8_t RxData[8];
 
   if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK) {
-    // SDO Command (ID 0x601 - 0x604)
     if (RxHeader.StdId >= 0x601 && RxHeader.StdId <= 0x604 &&
         RxHeader.DLC == 8) {
       uint8_t servoId = RxHeader.StdId - 0x600;
-      Bridge_ConvertSDOtoSerial(RxData, servoId);
+
+      if (RxData[0] == 0x22 && RxData[1] == 0x03 && RxData[2] == 0x60) {
+        int32_t canValue = (int32_t)RxData[4] | ((int32_t)RxData[5] << 8) |
+                           ((int32_t)RxData[6] << 16) |
+                           ((int32_t)RxData[7] << 24);
+        int32_t position = (canValue * 4) + SERVO_CENTER_POS;
+
+        uint8_t nextHead = (cmdQueueHead + 1) % CMD_QUEUE_SIZE;
+        if (nextHead != cmdQueueTail) {
+          cmdQueue[cmdQueueHead].servoId = servoId;
+          cmdQueue[cmdQueueHead].position = position;
+          cmdQueueHead = nextHead;
+        }
+      }
     }
   }
 }
@@ -240,26 +240,41 @@ int main(void) {
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1) {
-    // ===== Process Servo Feedback (Modular) =====
+    if (cmdQueueTail != cmdQueueHead) {
+      uint32_t now = HAL_GetTick();
+      if ((now - lastCmdTick) >= MIN_CMD_INTERVAL_MS) {
+        lastCmdTick = now;
+        uint8_t sid = cmdQueue[cmdQueueTail].servoId;
+        int32_t pos = cmdQueue[cmdQueueTail].position;
+        cmdQueueTail = (cmdQueueTail + 1) % CMD_QUEUE_SIZE;
+
+        uint8_t packet[5];
+        Servo_BuildPacket(sid, pos, packet);
+        HAL_UART_Transmit(&huart2, packet, 5, 10);
+
+        blinkServoId = sid;
+      }
+    }
+
     if (feedbackReady) {
       Bridge_ProcessFeedback(feedbackBuffer);
       feedbackReady = 0;
     }
 
-    // Handle Blink Request from Modules
     if (blinkServoId > 0) {
-      // Quick blink logic can be moved to LED manager if desired, keeping
-      // simple here
-      LED_OFF();
-      HAL_Delay(20);
-      LED_ON();
+      LED_Toggle();
       blinkServoId = 0;
     }
 
-    // Check for CAN Errors
     uint32_t canError = HAL_CAN_GetError(&hcan1);
     if (canError != HAL_CAN_ERROR_NONE) {
       HAL_CAN_ResetError(&hcan1);
+
+      if (canError & HAL_CAN_ERROR_BOF) {
+        HAL_CAN_Stop(&hcan1);
+        HAL_CAN_Start(&hcan1);
+        HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+      }
     }
 
     /* USER CODE END WHILE */
@@ -321,9 +336,9 @@ static void MX_CAN1_Init(void) {
   hcan1.Init.TimeSeg1 = CAN_BS1_13TQ;
   hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
   hcan1.Init.TimeTriggeredMode = DISABLE;
-  hcan1.Init.AutoBusOff = DISABLE;
-  hcan1.Init.AutoWakeUp = DISABLE;
-  hcan1.Init.AutoRetransmission = DISABLE;
+  hcan1.Init.AutoBusOff = ENABLE;
+  hcan1.Init.AutoWakeUp = ENABLE;
+  hcan1.Init.AutoRetransmission = ENABLE;
   hcan1.Init.ReceiveFifoLocked = DISABLE;
   hcan1.Init.TransmitFifoPriority = DISABLE;
   if (HAL_CAN_Init(&hcan1) != HAL_OK) {
